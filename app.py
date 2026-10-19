@@ -2,7 +2,6 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 from scipy.stats import linregress
 import time
 import random
@@ -104,12 +103,12 @@ def get_adc_values(probe_type, current_well):
     time.sleep(0.2)
     adc_420 = random.uniform(90, 110)
     if probe_type == "Lactate":
-        if current_well == 5: adc_485 = random.uniform(550, 650)
-        elif current_well == 6: adc_485 = random.uniform(450, 550)
+        if current_well == 2: adc_485 = random.uniform(550, 650)
+        elif current_well == 3: adc_485 = random.uniform(450, 550)
         else: adc_485 = random.uniform(120, 200)
     else:
-        if current_well == 5: adc_485 = random.uniform(400, 500) 
-        elif current_well == 6: adc_485 = random.uniform(150, 200) 
+        if current_well == 2: adc_485 = random.uniform(400, 500) 
+        elif current_well == 3: adc_485 = random.uniform(150, 200) 
         else: adc_485 = random.uniform(120, 160)
         
     return adc_420, adc_485
@@ -145,16 +144,6 @@ with tab1:
             # ★ 核心计算：485 / 420
             ratios = [y485[i] / y420[i] for i in range(len(xd))]
             
-            # 展示计算过程表格
-            st.markdown("**Data Processing (Ratio Calculation)**")
-            df_calc = pd.DataFrame({
-                "Conc. (mM)": xd,
-                "ADC_420": y420,
-                "ADC_485": y485,
-                "Ratio (485/420)": [round(r, 3) for r in ratios]
-            })
-            st.dataframe(df_calc, use_container_width=True, hide_index=True)
-            
             res = linregress(xd, ratios)
             st.session_state['lac_slope'] = res.slope
             st.session_state['lac_int'] = res.intercept
@@ -180,15 +169,6 @@ with tab1:
             # ★ 核心计算：485 / 420
             ratios = [y485[i] / y420[i] for i in range(len(xd))]
             
-            st.markdown("**Data Processing (Ratio Calculation)**")
-            df_calc = pd.DataFrame({
-                "Conc. (μM)": xd,
-                "ADC_420": y420,
-                "ADC_485": y485,
-                "Ratio (485/420)": [round(r, 3) for r in ratios]
-            })
-            st.dataframe(df_calc, use_container_width=True, hide_index=True)
-            
             res = linregress(xd, ratios)
             st.session_state['pyr_slope'] = res.slope
             st.session_state['pyr_int'] = res.intercept
@@ -201,7 +181,7 @@ with tab1:
             st.success(f"Fitted: Ratio = {res.slope:.4f} * Conc + {res.intercept:.3f} | R² = {res.rvalue**2:.4f}")
 
 # ------------------------------------------
-# Tab 2: 硬件扫描
+# Tab 2: 硬件扫描（每个探针固定 3 个示例，无柱形图）
 # ------------------------------------------
 with tab2:
     lac_slope = st.session_state.get('lac_slope', 0.1)
@@ -214,13 +194,14 @@ with tab2:
     with col_setup:
         st.markdown("### ⚙️ Scan Setup")
         probe_type = st.radio("Probe Mode", ["Lactate", "Pyruvate"])
-        num_wells = st.slider("Number of Wells", 1, 16, 6)
+        st.caption("📌 Demo Mode: 3 sample wells are scanned per probe.")
         
         if st.button("▶ Start Detection", type="primary"):
             st.session_state['scan_data'] = []
             progress_bar = st.progress(0)
             status_text = st.empty()
             
+            num_wells = 3  # 每个探针只输出 3 个例子
             for i in range(1, num_wells + 1):
                 status_text.text(f"Reading Well: W-{i:02d}...")
                 adc_420, adc_485 = get_adc_values(probe_type, i)
@@ -250,12 +231,6 @@ with tab2:
             st.markdown(f"### 📋 {probe_type} Results ({unit})")
             st.dataframe(df, use_container_width=True, hide_index=True)
             
-            fig = px.bar(df, x="Sample ID", y="Conc.", 
-                         title=f"{probe_type} Concentration Profile",
-                         color="Conc.", color_continuous_scale="Blues" if probe_type=="Lactate" else "Reds")
-            fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=40, b=0))
-            st.plotly_chart(fig, use_container_width=True)
-            
             if st.button("💾 Save for Joint Diagnosis", type="primary"):
                 if 'saved_lac' not in st.session_state: st.session_state['saved_lac'] = {}
                 if 'saved_pyr' not in st.session_state: st.session_state['saved_pyr'] = {}
@@ -271,7 +246,7 @@ with tab2:
 # Tab 3: 诊断摘要（卡片看板 + 报告单导出）
 # ------------------------------------------
 with tab3:
-    st.header("Diagnostic Summary")
+    st.header("Diagnosis Report")
     
     if 'saved_lac' not in st.session_state or 'saved_pyr' not in st.session_state:
         st.info("Please scan and save both Lactate and Pyruvate results first.")
@@ -301,13 +276,7 @@ with tab3:
                 })
             
             df_joint = pd.DataFrame(joint_data)
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Total Samples", len(df_joint))
-            c2.metric("Cancer Risk", len(df_joint[df_joint['Status']=="High Cancer Risk"]), delta_color="inverse")
-            c3.metric("Inflammation", len(df_joint[df_joint['Status']=="Inflammation"]), delta_color="off")
-            c4.metric("Normal", len(df_joint[df_joint['Status']=="Normal"]))
             
-            st.divider()
             st.markdown("### 🩺 Patient Sample Cards")
             
             cols = st.columns(3)
