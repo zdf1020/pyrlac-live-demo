@@ -1,239 +1,226 @@
 import streamlit as st
 import numpy as np
-import pandas as pd
 import plotly.graph_objects as go
 from scipy.stats import linregress
-import time
 
 # ==========================================
-# 1. 页面配置与全局样式
+# 1. 页面基础配置与 CSS 注入
 # ==========================================
 st.set_page_config(
     page_title="PyrLac Glow | Diagnostic Interface",
     page_icon="🧬",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    layout="wide"
 )
 
-# 注入 CSS 美化卡片
+# 注入自定义 CSS 美化卡片
 st.markdown("""
 <style>
-    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
+    /* 指标卡片样式 */
     .metric-card {
-        background-color: #ffffff;
-        padding: 24px;
-        border-radius: 12px;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-        border-left: 6px solid #6A3AB2;
+        background-color: white;
+        padding: 24px 30px;
+        border-radius: 16px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+        border-left: 8px solid #ccc;
         margin-bottom: 20px;
+        transition: all 0.3s ease;
     }
-    .big-number { font-size: 42px; font-weight: 800; color: #2f2a3d; line-height: 1.2; }
-    .status-pass { color: #28a745; font-weight: bold; font-size: 18px; }
-    .status-fail { color: #dc3545; font-weight: bold; font-size: 18px; }
-    .risk-low { color: #28a745; font-weight: bold; font-size: 24px; }
-    .risk-med { color: #ffc107; font-weight: bold; font-size: 24px; }
-    .risk-high { color: #dc3545; font-weight: bold; font-size: 24px; }
+    .metric-value { font-size: 42px; font-weight: 800; line-height: 1.1; }
+    .metric-label { font-size: 14px; color: #666; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
+    .risk-text { font-size: 28px; font-weight: 800; margin-top: 12px;}
+    .note-text { font-size: 16px; color: #555; margin-top: 12px; line-height: 1.6;}
+    
+    /* 按钮美化 */
+    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🧬 PyrLac Glow - Rapid Cancer Risk Pre-screening")
-st.markdown("**Next-Generation Metabolic Profiling** | Target: Dual-fluorescence biomarkers (Lactate & Pyruvate)")
+st.title("🧬 PyrLac Glow - Rapid Diagnostic Interface")
+st.markdown("**Hardware:** Dual-Probe Detection | **Sensors:** L4 (Lactate) & P2 (Pyruvate)")
 
 # ==========================================
-# 2. 侧边栏：系统设置与参数
+# 2. 侧边栏：说明与阈值
 # ==========================================
 with st.sidebar:
-    st.image("https://static.igem.wiki/teams/6263/wiki/layout/1-1-1.avif", width=120) # 吉祥物
-    st.header("⚙️ Hardware & Assay Settings")
-    
-    # 蛋白选择
-    target = st.selectbox(
-        "Select Active Sensor Protein", 
-        ["L2 Protein (Lactate)", "P4 Protein (Pyruvate)"]
-    )
-    
-    if "Lactate" in target:
-        biomarker = "Lactate"
-        unit = "mM"
-        normal_range = (0.5, 2.2) # 正常生理乳酸范围
-        default_x = [0.0, 1.0, 2.0, 5.0, 10.0]
-        default_y = [50.1, 128.4, 255.3, 605.7, 1210.2]
-        color = "#0068c9"
-    else:
-        biomarker = "Pyruvate"
-        unit = "mM"
-        normal_range = (0.05, 0.2) # 正常生理丙酮酸范围
-        default_x = [0.0, 0.1, 0.2, 0.5, 1.0]
-        default_y = [45.2, 152.8, 310.5, 782.1, 1550.8]
-        color = "#ff4b4b"
-
-    st.info(f"**Normal Reference Range:**\n{normal_range[0]} - {normal_range[1]} {unit}")
-    
+    st.header("ℹ️ Workflow & Thresholds")
+    st.markdown("""
+    1. **Calibration:** Fit standard curves for both L4 and P2 proteins.
+    2. **Diagnosis:** Input sample ADC signals for real-time joint diagnosis.
+    """)
     st.divider()
-    st.write("**System Status:**")
-    st.success("Optical Module: Online")
-    st.success("Rotation Servo: Ready")
+    st.info("**Clinical Thresholds:**")
+    st.markdown("- **Lactate (L4):** `5.0 mM`\n- **Pyruvate (P2):** `200 μM`")
 
 # ==========================================
 # 3. 核心功能区：Tabs
 # ==========================================
-tab_demo, tab_cal, tab_measure = st.tabs(["🚀 Quick Live Demo", "📈 1. Calibration", "🧪 2. Sample Measurement"])
+tab1, tab2 = st.tabs(["📈 1. Calibration Mode", "🧪 2. Diagnostic Interface"])
 
 # ------------------------------------------
-# Tab 0: 一键演示模式 (方便现场答辩)
+# Tab 1: 双通道校准
 # ------------------------------------------
-with tab_demo:
-    st.header("Live Demonstration Mode")
-    st.write("Use this button to instantly populate mock data for a quick demonstration without typing.")
+with tab1:
+    st.header("Dual-Probe Calibration")
+    col1, col2 = st.columns(2)
     
-    if st.button("⚡ Auto-fill Demo Data & Run", type="primary"):
-        # 修复：这里算好 R2 并存入 session_state
-        res = linregress(default_x, default_y)
-        st.session_state['slope'] = res.slope
-        st.session_state['intercept'] = res.intercept
-        st.session_state['r2'] = res.rvalue ** 2  # <--- 修复了这里
-        st.session_state['calibrated'] = True
-        st.session_state['demo_mode'] = True
-        st.session_state['target'] = target
-        
-        # 模拟生成一个高风险的样本 ADC 值
-        mock_adc = (normal_range[1] * 1.8 * st.session_state['slope']) + st.session_state['intercept']
-        st.session_state['last_adc'] = mock_adc
-        
-        st.success("✅ Demo data loaded! Please go to **Tab 2** to see the diagnostic result.")
-
-# ------------------------------------------
-# Tab 1: 校准模块
-# ------------------------------------------
-with tab_cal:
-    st.header(f"Calibration Curve for {biomarker}")
-    
-    col1, col2 = st.columns([1, 1.2])
-    
+    # 左侧：L4 校准
     with col1:
-        st.write("**Input Standard Data**")
-        x_input = st.text_input(f"Standard Concentrations ({unit})", value=", ".join(map(str, default_x)))
-        y_input = st.text_input("ADC Signal Readings", value=", ".join(map(str, default_y)))
-        
-        if st.button("Run Calibration & Check QC", type="secondary"):
-            with st.spinner("Fitting data..."):
-                time.sleep(0.5)
-                try:
-                    x_data = [float(i.strip()) for i in x_input.split(",") if i.strip()]
-                    y_data = [float(i.strip()) for i in y_input.split(",") if i.strip()]
-                    
-                    if len(x_data) == len(y_data) and len(x_data) >= 2:
-                        slope, intercept, r_val, _, _ = linregress(x_data, y_data)
-                        st.session_state.update({
-                            'slope': slope, 'intercept': intercept, 
-                            'r2': r_val**2, 'calibrated': True, 'target': target
-                        })
-                        st.session_state.pop('last_adc', None) # 清除旧结果
-                    else:
-                        st.error("Please ensure X and Y arrays have the same length.")
-                except Exception as e:
-                    st.error(f"Data parsing error: {e}")
+        st.subheader("L4 Protein (Lactate)")
+        l4_x = st.text_input("Lactate Standards (mM)", value="0.0, 1.0, 2.0, 5.0, 10.0")
+        l4_y = st.text_input("L4 ADC Signals", value="50.1, 128.4, 255.3, 605.7, 1210.2")
+        if st.button("Run L4 Calibration", type="primary"):
+            try:
+                xd = [float(i) for i in l4_x.split(',')]
+                yd = [float(i) for i in l4_y.split(',')]
+                res = linregress(xd, yd)
+                st.session_state['l4_slope'] = res.slope
+                st.session_state['l4_int'] = res.intercept
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=xd, y=yd, mode='markers', name='Data', marker=dict(color='#0068c9', size=10)))
+                fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * np.array(xd), mode='lines', name='Fit', line=dict(color='black', dash='dash')))
+                fig.update_layout(title="L4 Standard Curve", xaxis_title="Conc (mM)", yaxis_title="ADC", height=300, margin=dict(l=0, r=0, t=30, b=0))
+                st.plotly_chart(fig, use_container_width=True)
+                st.success(f"**Equation:** y = {res.slope:.2f}x + {res.intercept:.2f} | **R² = {res.rvalue**2:.4f}**")
+            except Exception as e:
+                st.error("Input parsing error.")
 
+    # 右侧：P2 校准
     with col2:
-        st.write("**Calibration Quality Control**")
-        # 这里安全获取，防止报错
-        if st.session_state.get('calibrated', False) and st.session_state.get('target') == target:
-            # 画图
-            x_data = [float(i.strip()) for i in x_input.split(",")]
-            y_data = [float(i.strip()) for i in y_input.split(",")]
-            
-            fig = go.Figure()
-            fig.add_trace(go.Scatter(x=x_data, y=y_data, mode='markers', name='Standards', 
-                                     marker=dict(size=12, color=color, line=dict(width=2, color='white'))))
-            
-            line_x = np.array([min(x_data), max(x_data)])
-            line_y = st.session_state['slope'] * line_x + st.session_state['intercept']
-            fig.add_trace(go.Scatter(x=line_x, y=line_y, mode='lines', name='Fit', line=dict(color='#333', width=2, dash='dash')))
-            
-            fig.update_layout(template="plotly_white", height=350, margin=dict(l=0, r=0, t=20, b=0),
-                              xaxis_title=f"Concentration ({unit})", yaxis_title="ADC Signal")
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # QC 面板
-            r2 = st.session_state.get('r2', 0) # 安全获取
-            if r2 > 0.98:
-                st.markdown(f"**Equation:** y = `{st.session_state['slope']:.2f}` x + `{st.session_state['intercept']:.2f}` | **R²:** <span class='status-pass'>{r2:.4f} (PASS)</span>", unsafe_allow_html=True)
-            else:
-                st.markdown(f"**Equation:** y = `{st.session_state['slope']:.2f}` x + `{st.session_state['intercept']:.2f}` | **R²:** <span class='status-fail'>{r2:.4f} (FAIL)</span>", unsafe_allow_html=True)
-                st.warning("Low linearity. Please check sample preparation.")
-        else:
-            st.info("Awaiting calibration data...")
+        st.subheader("P2 Protein (Pyruvate)")
+        p2_x = st.text_input("Pyruvate Standards (μM)", value="0, 100, 200, 500, 1000")
+        p2_y = st.text_input("P2 ADC Signals", value="45.2, 152.8, 310.5, 782.1, 1550.8")
+        if st.button("Run P2 Calibration", type="primary"):
+            try:
+                xd = [float(i) for i in p2_x.split(',')]
+                yd = [float(i) for i in p2_y.split(',')]
+                res = linregress(xd, yd)
+                st.session_state['p2_slope'] = res.slope
+                st.session_state['p2_int'] = res.intercept
+                
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(x=xd, y=yd, mode='markers', name='Data', marker=dict(color='#ff4b4b', size=10)))
+                fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * np.array(xd), mode='lines', name='Fit', line=dict(color='black', dash='dash')))
+                fig.update_layout(title="P2 Standard Curve", xaxis_title="Conc (μM)", yaxis_title="ADC", height=300, margin=dict(l=0, r=0, t=30, b=0))
+                st.plotly_chart(fig, use_container_width=True)
+                st.success(f"**Equation:** y = {res.slope:.2f}x + {res.intercept:.2f} | **R² = {res.rvalue**2:.4f}**")
+            except Exception as e:
+                st.error("Input parsing error.")
+
 
 # ------------------------------------------
-# Tab 2: 测量与诊断
+# Tab 2: 实时联合诊断
 # ------------------------------------------
-with tab_measure:
-    st.header("Sample Analysis & Risk Stratification")
+with tab2:
+    # 检查是否已经完成了校准
+    if 'l4_slope' not in st.session_state or 'p2_slope' not in st.session_state:
+        st.warning("⚠️ Please complete calibration for both L4 and P2 in Tab 1 first.")
+        
+        # 提供默认值供没有校准直接查看的情况
+        l4_slope, l4_int = 115.0, 50.0
+        p2_slope, p2_int = 1.5, 40.0
+    else:
+        l4_slope = st.session_state['l4_slope']
+        l4_int = st.session_state['l4_int']
+        p2_slope = st.session_state['p2_slope']
+        p2_int = st.session_state['p2_int']
+
+    st.header("Joint Diagnostic Interface")
     
-    if not st.session_state.get('calibrated', False) or st.session_state.get('target') != target:
-        st.warning("⚠️ Please complete calibration first or check if the active protein matches.")
-    else:
-        col_in, col_out = st.columns([1, 1.2])
+    col_input, col_plot = st.columns([1, 2], gap="large")
+    
+    # 左侧：输入与结果
+    with col_input:
+        st.markdown("### 🧪 Sample Inputs")
+        st.write("Enter the ADC signals from the two aliquots.")
         
-        with col_in:
-            st.write("**Input Unknown Sample**")
-            # 检查是否有 Demo 模式的数据
-            default_adc = st.session_state.get('last_adc', 800.0) if st.session_state.get('demo_mode') else 800.0
-            
-            sample_adc = st.number_input("Raw ADC Signal", value=float(default_adc), step=5.0)
-            
-            if st.button("🔍 Analyze & Diagnose", type="primary"):
-                conc = max(0, (sample_adc - st.session_state['intercept']) / st.session_state['slope'])
-                
-                # 风险逻辑
-                if conc <= normal_range[1]:
-                    risk, cls = "Normal / Low Risk", "risk-low"
-                    note = "Metabolite level is within the normal physiological range."
-                elif conc <= normal_range[1] * 1.5:
-                    risk, cls = "Moderate Risk", "risk-med"
-                    note = "Slightly elevated. Suggest follow-up physical examination."
-                else:
-                    risk, cls = "High Risk", "risk-high"
-                    note = "Significantly elevated. Strongly recommend immediate clinical consultation."
-                
-                # 存入历史
-                if 'history' not in st.session_state: st.session_state['history'] = []
-                st.session_state['history'].append({
-                    "Biomarker": biomarker, "ADC": sample_adc, f"Conc. ({unit})": round(conc, 3), "Result": risk
-                })
-                
-                # 显示结果卡片
-                with col_out:
-                    st.markdown(f"""
-                    <div class="metric-card">
-                        <h4 style="margin-top:0; color:#666;">Detected {biomarker}</h4>
-                        <div class="big-number">{conc:.2f} <span style="font-size: 20px; color:#999;">{unit}</span></div>
-                        <hr style="margin: 15px 0;">
-                        <h4 style="margin-top:0; color:#666;">Risk Classification</h4>
-                        <div class="{cls}">{risk}</div>
-                        <p style="margin-top:10px; font-size: 14px; color:#555;">{note}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    st.toast("Data recorded successfully!")
+        adc_lac = st.number_input("Lactate Channel (L4) ADC", value=800.0, step=10.0)
+        adc_pyr = st.number_input("Pyruvate Channel (P2) ADC", value=300.0, step=10.0)
+        
+        # 实时计算浓度
+        conc_lac = max(0, (adc_lac - l4_int) / l4_slope)
+        conc_pyr = max(0, (adc_pyr - p2_int) / p2_slope)
 
-# ==========================================
-# 4. 底部：历史数据与导出
-# ==========================================
-with st.expander("📂 View & Export Measurement History"):
-    if 'history' in st.session_state and st.session_state['history']:
-        df = pd.DataFrame(st.session_state['history'])
-        st.dataframe(df, use_container_width=True)
+        st.markdown("---")
+        st.markdown("### 🩺 Diagnostic Result")
         
-        csv = df.to_csv(index=False).encode('utf-8')
-        st.download_button(
-            label="📥 Download Data as CSV",
-            data=csv,
-            file_name='pyrlac_results.csv',
-            mime='text/csv',
-            type="primary"
+        # 象限判定逻辑
+        if conc_lac >= 5.0 and conc_pyr >= 200:
+            status, color = "High Cancer Risk", "#B91C1C"
+            note = "Warburg effect signature detected. Both biomarkers are synchronously elevated."
+        elif conc_lac >= 5.0 and conc_pyr < 200:
+            status, color = "Inflammation / Ischemia", "#A86A1A"
+            note = "Lactate is elevated but pyruvate remains normal. Likely benign."
+        elif conc_lac < 5.0 and conc_pyr >= 200:
+            status, color = "High Pyruvate", "#5A4A9A"
+            note = "Pyruvate is elevated but lactate is normal. Not typical of Warburg effect."
+        else:
+            status, color = "Normal", "#2C6E4A"
+            note = "Both biomarkers are within normal ranges."
+
+        # 结果卡片 (动态颜色)
+        st.markdown(f"""
+        <div class="metric-card" style="border-left-color: {color};">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <div>
+                    <div class="metric-label" style="color: #0068c9;">Lactate (L4)</div>
+                    <div class="metric-value" style="color: #0068c9;">{conc_lac:.2f} <span style="font-size:16px; font-weight:normal;">mM</span></div>
+                </div>
+                <div style="text-align: right;">
+                    <div class="metric-label" style="color: #ff4b4b;">Pyruvate (P2)</div>
+                    <div class="metric-value" style="color: #ff4b4b;">{conc_pyr:.0f} <span style="font-size:16px; font-weight:normal;">μM</span></div>
+                </div>
+            </div>
+            <hr style="margin: 15px 0; border-top: 1px solid #eee;">
+            <div class="metric-label">Risk Classification</div>
+            <div class="risk-text" style="color: {color};">{status}</div>
+            <div class="note-text">{note}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+    # 右侧：二维象限图
+    with col_plot:
+        st.markdown("### 📊 Metabolic Fingerprint Quadrant")
+        
+        fig = go.Figure()
+
+        # 画四个象限的背景色
+        fig.add_shape(type="rect", x0=0, y0=0, x1=200, y1=5, fillcolor="#bfe3c8", opacity=0.4, line_width=0) # Normal
+        fig.add_shape(type="rect", x0=0, y0=5, x1=200, y1=30, fillcolor="#f6d9a8", opacity=0.4, line_width=0) # Inflammation
+        fig.add_shape(type="rect", x0=200, y0=5, x1=800, y1=30, fillcolor="#e9b8d4", opacity=0.4, line_width=0) # Cancer
+        fig.add_shape(type="rect", x0=200, y0=0, x1=800, y1=5, fillcolor="#c9c4e6", opacity=0.4, line_width=0) # High Pyr
+        
+        # 画阈值虚线
+        fig.add_shape(type="line", x0=200, y0=0, x1=200, y1=30, line=dict(color="#6A3AB2", width=2, dash="dash"))
+        fig.add_shape(type="line", x0=0, y0=5, x1=800, y1=5, line=dict(color="#6A3AB2", width=2, dash="dash"))
+        
+        # 添加象限文字标签
+        fig.add_annotation(x=100, y=2.5, text="Normal", showarrow=False, font=dict(color="#2C6E4A", size=14, weight="bold"))
+        fig.add_annotation(x=100, y=15, text="Inflammation", showarrow=False, font=dict(color="#A86A1A", size=14, weight="bold"))
+        fig.add_annotation(x=500, y=15, text="High Cancer Risk", showarrow=False, font=dict(color="#B91C1C", size=16, weight="bold"))
+        fig.add_annotation(x=500, y=2.5, text="High Pyruvate", showarrow=False, font=dict(color="#5A4A9A", size=14, weight="bold"))
+
+        # 绘制当前样本点
+        fig.add_trace(go.Scatter(
+            x=[min(conc_pyr, 800)], 
+            y=[min(conc_lac, 30)],
+            mode='markers',
+            marker=dict(size=18, color=color, line=dict(width=3, color='white'), symbol='circle'),
+            name='Current Sample',
+            hoverinfo='text',
+            text=[f"Lac: {conc_lac:.1f} mM<br>Pyr: {conc_pyr:.0f} μM"]
+        ))
+
+        fig.update_layout(
+            xaxis_title="Pyruvate Concentration (μM)",
+            yaxis_title="Lactate Concentration (mM)",
+            xaxis=dict(range=[0, 800], showgrid=False),
+            yaxis=dict(range=[0, 30], showgrid=False),
+            height=500,
+            margin=dict(l=0, r=0, t=10, b=0),
+            showlegend=False,
+            plot_bgcolor='white'
         )
-        if st.button("Clear History"):
-            st.session_state['history'] = []
-            st.rerun()
-    else:
-        st.info("No records yet. Analyze a sample to generate data.")
+        
+        st.plotly_chart(fig, use_container_width=True)
