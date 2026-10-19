@@ -2,6 +2,7 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 from scipy.stats import linregress
 import time
 import random
@@ -66,125 +67,52 @@ st.title("🧬 PyrLac Glow - Diagnostic Terminal")
 st.markdown('<div class="formula-banner">Ratiometric Signal (Ratio) = ADC (485 nm) / ADC (420 nm)</div>', unsafe_allow_html=True)
 
 # ==========================================
-# 2. 侧边栏（双端口：硬件 / 演示）
+# 2. 侧边栏
 # ==========================================
 with st.sidebar:
     st.image("https://static.igem.wiki/teams/6263/wiki/layout/1-1-1.avif", width=100)
-    st.header("🔌 Data Source")
-
-    # ★ 双端口模式选择
-    source_mode = st.radio(
-        "Select Input Port",
-        ["🔌 Hardware Port", "🎭 Demo Port (Simulated)"],
-        index=1 if not SERIAL_AVAILABLE else 0,
-        help="Hardware 连接真实 Arduino；Demo 使用内置模拟例子"
-    )
-
-    st.divider()
-
-    if source_mode == "🔌 Hardware Port":
-        st.markdown("### Hardware Connection")
-        if SERIAL_AVAILABLE:
-            ports = [p.device for p in serial.tools.list_ports.comports()]
-            port_select = st.selectbox(
-                "Arduino Port",
-                ports if ports else ["No Port Found"]
-            )
-            st.session_state['serial_port'] = port_select if ports else None
-            st.session_state['data_source'] = 'hardware'
-            if ports:
-                st.success(f"Connected: {port_select}")
-            else:
-                st.warning("⚠️ No device detected")
-        else:
-            st.session_state['serial_port'] = None
-            st.session_state['data_source'] = 'hardware'
-            st.error("❌ pyserial not installed. Please `pip install pyserial`.")
-
-    else:  # Demo Port
-        st.markdown("### Demo Mode")
+    st.header("🔌 Hardware Status")
+    if SERIAL_AVAILABLE:
+        ports = [p.device for p in serial.tools.list_ports.comports()]
+        port_select = st.selectbox("Arduino Port", ports if ports else ["No Port Found"])
+        st.session_state['serial_port'] = port_select if ports else None
+        st.success("System Online & Ready") if ports else st.warning("Waiting for Device")
+    else:
+        st.info("🔒 Cloud Demo Mode (Simulated Data)")
         st.session_state['serial_port'] = None
-        st.session_state['data_source'] = 'demo'
-        st.info("🎭 Running with built-in sample data.\n\nNo real hardware required.")
-        demo_sample = st.selectbox(
-            "Demo Sample Set",
-            ["Sample Set A (Mixed)", "Sample Set B (Normal)", "Sample Set C (Abnormal)"]
-        )
-        st.session_state['demo_sample_set'] = demo_sample
 
     st.divider()
     st.markdown("### 🩺 Clinical Thresholds")
     st.info("**Lactate:** `5.0 mM`\n\n**Pyruvate:** `200 μM`")
 
-# ==========================================
-# 硬件读取
-# ==========================================
-def read_from_hardware(port):
-    """从串口读取真实 ADC 值；失败返回 None"""
-    try:
-        ser = serial.Serial(port, 9600, timeout=1)
-        time.sleep(0.05)
-        ser.reset_input_buffer()
-        line = ser.readline().decode('utf-8').strip()
-        ser.close()
-        match = re.search(r"420:(\d+),\s*485:(\d+)", line)
-        if match:
-            return float(match.group(1)), float(match.group(2))
-    except Exception:
-        pass
-    return None
-
-# ==========================================
-# 演示数据（三套示例）
-# ==========================================
-def get_demo_adc(probe_type, well_idx, sample_set):
-    """
-    well_idx: 1, 2, 3
-    返回 (adc_420, adc_485)
-    """
-    # 预设种子，让示例稳定可复现
-    if sample_set == "Sample Set A (Mixed)":
-        # Lactate: [正常, 高, 正常]  Pyruvate: [正常, 正常, 高]
-        if probe_type == "Lactate":
-            adc_485 = [150, 620, 175][well_idx - 1]
-        else:
-            adc_485 = [140, 155, 460][well_idx - 1]
-        seed = 100 + well_idx
-    elif sample_set == "Sample Set B (Normal)":
-        adc_485 = [145, 160, 152][well_idx - 1]
-        seed = 200 + well_idx
-    else:  # Sample Set C (Abnormal)
-        if probe_type == "Lactate":
-            adc_485 = [600, 640, 580][well_idx - 1]
-        else:
-            adc_485 = [420, 470, 450][well_idx - 1]
-        seed = 300 + well_idx
-
-    rng = random.Random(seed)
-    adc_420 = rng.uniform(95, 105)
-    adc_485 = adc_485 + rng.uniform(-10, 10)
-    return adc_420, adc_485
-
-
+# --- 模拟获取硬件 ADC 数据 ---
 def get_adc_values(probe_type, current_well):
-    """统一入口：根据 data_source 分流到硬件或演示"""
-    source = st.session_state.get('data_source', 'demo')
-
-    if source == 'hardware':
-        port = st.session_state.get('serial_port')
-        if port:
-            result = read_from_hardware(port)
-            if result:
-                return result
-            # 硬件失败 → 报错并回退演示
-            st.warning("⚠️ Hardware read failed, using demo data for this well.")
-        else:
-            st.error("❌ No hardware port selected.")
-
-    # Demo 模式
+    port = st.session_state.get('serial_port')
+    if port:
+        try:
+            ser = serial.Serial(port, 9600, timeout=1)
+            time.sleep(0.05)
+            ser.reset_input_buffer()
+            line = ser.readline().decode('utf-8').strip()
+            ser.close()
+            match = re.search(r"420:(\d+),\s*485:(\d+)", line)
+            if match:
+                return float(match.group(1)), float(match.group(2))
+        except Exception:
+            pass 
+    
     time.sleep(0.2)
-    sample_set = st.session_state.get('demo_sample_set', "Sample Set A (Mixed)")
-    return get_demo_adc(probe_type, current_well, sample_set)
+    adc_420 = random.uniform(90, 110)
+    if probe_type == "Lactate":
+        if current_well == 5: adc_485 = random.uniform(550, 650)
+        elif current_well == 6: adc_485 = random.uniform(450, 550)
+        else: adc_485 = random.uniform(120, 200)
+    else:
+        if current_well == 5: adc_485 = random.uniform(400, 500) 
+        elif current_well == 6: adc_485 = random.uniform(150, 200) 
+        else: adc_485 = random.uniform(120, 160)
+        
+    return adc_420, adc_485
 
 # ==========================================
 # 3. 核心功能区
@@ -214,7 +142,18 @@ with tab1:
             y420 = [float(i) for i in lac_y420.split(',')]
             y485 = [float(i) for i in lac_y485.split(',')]
             
+            # ★ 核心计算：485 / 420
             ratios = [y485[i] / y420[i] for i in range(len(xd))]
+            
+            # 展示计算过程表格
+            st.markdown("**Data Processing (Ratio Calculation)**")
+            df_calc = pd.DataFrame({
+                "Conc. (mM)": xd,
+                "ADC_420": y420,
+                "ADC_485": y485,
+                "Ratio (485/420)": [round(r, 3) for r in ratios]
+            })
+            st.dataframe(df_calc, use_container_width=True, hide_index=True)
             
             res = linregress(xd, ratios)
             st.session_state['lac_slope'] = res.slope
@@ -238,7 +177,17 @@ with tab1:
             y420 = [float(i) for i in pyr_y420.split(',')]
             y485 = [float(i) for i in pyr_y485.split(',')]
             
+            # ★ 核心计算：485 / 420
             ratios = [y485[i] / y420[i] for i in range(len(xd))]
+            
+            st.markdown("**Data Processing (Ratio Calculation)**")
+            df_calc = pd.DataFrame({
+                "Conc. (μM)": xd,
+                "ADC_420": y420,
+                "ADC_485": y485,
+                "Ratio (485/420)": [round(r, 3) for r in ratios]
+            })
+            st.dataframe(df_calc, use_container_width=True, hide_index=True)
             
             res = linregress(xd, ratios)
             st.session_state['pyr_slope'] = res.slope
@@ -252,34 +201,26 @@ with tab1:
             st.success(f"Fitted: Ratio = {res.slope:.4f} * Conc + {res.intercept:.3f} | R² = {res.rvalue**2:.4f}")
 
 # ------------------------------------------
-# Tab 2: 硬件扫描（3 个示例，无柱形图）
+# Tab 2: 硬件扫描
 # ------------------------------------------
 with tab2:
     lac_slope = st.session_state.get('lac_slope', 0.1)
     lac_int = st.session_state.get('lac_int', 1.0)
     pyr_slope = st.session_state.get('pyr_slope', 0.001)
     pyr_int = st.session_state.get('pyr_int', 1.0)
-
-    # 显示当前数据源状态条
-    source = st.session_state.get('data_source', 'demo')
-    if source == 'hardware':
-        st.success(f"🔌 Hardware Mode | Port: {st.session_state.get('serial_port', 'N/A')}")
-    else:
-        st.info(f"🎭 Demo Mode | Set: {st.session_state.get('demo_sample_set', 'N/A')}")
-
+    
     col_setup, col_results = st.columns([1, 2], gap="large")
     
     with col_setup:
         st.markdown("### ⚙️ Scan Setup")
         probe_type = st.radio("Probe Mode", ["Lactate", "Pyruvate"])
-        st.caption("📌 3 sample wells are scanned per probe.")
+        num_wells = st.slider("Number of Wells", 1, 16, 6)
         
         if st.button("▶ Start Detection", type="primary"):
             st.session_state['scan_data'] = []
             progress_bar = st.progress(0)
             status_text = st.empty()
             
-            num_wells = 3
             for i in range(1, num_wells + 1):
                 status_text.text(f"Reading Well: W-{i:02d}...")
                 adc_420, adc_485 = get_adc_values(probe_type, i)
@@ -309,6 +250,12 @@ with tab2:
             st.markdown(f"### 📋 {probe_type} Results ({unit})")
             st.dataframe(df, use_container_width=True, hide_index=True)
             
+            fig = px.bar(df, x="Sample ID", y="Conc.", 
+                         title=f"{probe_type} Concentration Profile",
+                         color="Conc.", color_continuous_scale="Blues" if probe_type=="Lactate" else "Reds")
+            fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=40, b=0))
+            st.plotly_chart(fig, use_container_width=True)
+            
             if st.button("💾 Save for Joint Diagnosis", type="primary"):
                 if 'saved_lac' not in st.session_state: st.session_state['saved_lac'] = {}
                 if 'saved_pyr' not in st.session_state: st.session_state['saved_pyr'] = {}
@@ -321,10 +268,10 @@ with tab2:
                 st.success("Data saved! Go to Diagnosis Summary.")
 
 # ------------------------------------------
-# Tab 3: 诊断摘要
+# Tab 3: 诊断摘要（卡片看板 + 报告单导出）
 # ------------------------------------------
 with tab3:
-    st.header("Diagnosis Report")
+    st.header("Diagnostic Summary")
     
     if 'saved_lac' not in st.session_state or 'saved_pyr' not in st.session_state:
         st.info("Please scan and save both Lactate and Pyruvate results first.")
@@ -354,7 +301,13 @@ with tab3:
                 })
             
             df_joint = pd.DataFrame(joint_data)
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Total Samples", len(df_joint))
+            c2.metric("Cancer Risk", len(df_joint[df_joint['Status']=="High Cancer Risk"]), delta_color="inverse")
+            c3.metric("Inflammation", len(df_joint[df_joint['Status']=="Inflammation"]), delta_color="off")
+            c4.metric("Normal", len(df_joint[df_joint['Status']=="Normal"]))
             
+            st.divider()
             st.markdown("### 🩺 Patient Sample Cards")
             
             cols = st.columns(3)
