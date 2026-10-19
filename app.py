@@ -27,7 +27,6 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* 全局字体优化 */
     html, body, [class*="css"] { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     
     /* 提示框美化 */
@@ -53,10 +52,10 @@ st.markdown("""
     }
     
     /* 状态颜色 */
-    .bg-normal { background-color: #28a745; }      /* 绿色 */
-    .bg-inflam { background-color: #ffc107; }      /* 黄色 */
-    .bg-cancer { background-color: #dc3545; }      /* 红色 */
-    .bg-highpyr { background-color: #6f42c1; }     /* 紫色 */
+    .bg-normal { background-color: #28a745; }
+    .bg-inflam { background-color: #ffc107; color: #333; }
+    .bg-cancer { background-color: #dc3545; }
+    .bg-highpyr { background-color: #6f42c1; }
 
     .border-normal { border-left-color: #28a745; }
     .border-inflam { border-left-color: #ffc107; }
@@ -233,7 +232,7 @@ with tab2:
                 st.success("Data saved! Go to Diagnosis Summary.")
 
 # ------------------------------------------
-# Tab 3: 诊断摘要（卡片看板）
+# Tab 3: 诊断摘要（卡片看板 + 报告单导出）
 # ------------------------------------------
 with tab3:
     st.header("Diagnostic Summary")
@@ -246,7 +245,6 @@ with tab3:
         if not common_ids:
             st.warning("No matching Sample IDs found.")
         else:
-            # 汇总数据表
             joint_data = []
             for sid in common_ids:
                 c_lac = st.session_state['saved_lac'][sid]
@@ -266,7 +264,6 @@ with tab3:
                     "Status": status, "BgClass": bg_cls, "BrClass": br_cls
                 })
             
-            # 顶部统计概览
             df_joint = pd.DataFrame(joint_data)
             c1, c2, c3, c4 = st.columns(4)
             c1.metric("Total Samples", len(df_joint))
@@ -277,9 +274,7 @@ with tab3:
             st.divider()
             st.markdown("### 🩺 Patient Sample Cards")
             
-            # 使用网格布局渲染卡片
-            cols = st.columns(3) # 每行3个卡片
-            
+            cols = st.columns(3)
             for idx, row in df_joint.iterrows():
                 col_idx = idx % 3
                 with cols[col_idx]:
@@ -291,7 +286,74 @@ with tab3:
                         <div class="card-badge {row['BgClass']}">{row['Status']}</div>
                     </div>
                     """, unsafe_allow_html=True)
+
+            st.divider()
+            st.markdown("### 📄 Export & Reports")
             
+            # --- 1. 批量导出数据表 (CSV) ---
+            csv = df_joint.drop(columns=['BgClass', 'BrClass']).to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download All Results (CSV)",
+                data=csv,
+                file_name='PyrLac_Glow_Batch_Results.csv',
+                mime='text/csv',
+                type="primary"
+            )
+            
+            # --- 2. 生成单个独立报告单 ---
+            st.markdown("#### Individual Patient Reports")
+            st.write("Click on any sample below to preview its independent clinical report and download it.")
+            
+            for idx, row in df_joint.iterrows():
+                with st.expander(f"📄 Report for {row['Sample ID']} - {row['Status']}"):
+                    
+                    # 动态生成 HTML 报告单
+                    rec_text = 'Immediate clinical consultation strongly advised.' if row['Status']=='High Cancer Risk' else ('Slight elevation detected. Follow-up physical examination recommended.' if row['Status']=='Inflammation' else 'No significant metabolic risk detected. Continue routine checkups.')
+                    risk_color = '#B91C1C' if row['Status']=='High Cancer Risk' else ('#D97706' if row['Status']=='Inflammation' else '#2C6E4A')
+
+                    report_html = f"""
+                    <div style="border: 2px solid #333; padding: 30px; border-radius: 8px; font-family: Arial, sans-serif; max-width: 650px; margin: auto; background-color: #fff;">
+                        <h2 style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0;">PyrLac Glow Diagnostic Report</h2>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                            <div><b>Sample ID:</b> {row['Sample ID']}</div>
+                            <div><b>Test Date:</b> {time.strftime('%Y-%m-%d')}</div>
+                        </div>
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                            <tr style="background-color: #f2f2f2;">
+                                <th style="border: 1px solid #ddd; padding: 10px; text-align: left;">Biomarker</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">Result</th>
+                                <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">Reference Threshold</th>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #ddd; padding: 10px;">Lactate (Lactate Probe)</td>
+                                <td style="border: 1px solid #ddd; padding: 10px; text-align: center; font-weight: bold; color: {risk_color};">{row['Lactate (mM)']:.2f} mM</td>
+                                <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">&lt; 5.0 mM</td>
+                            </tr>
+                            <tr>
+                                <td style="border: 1px solid #ddd; padding: 10px;">Pyruvate (Pyruvate Probe)</td>
+                                <td style="border: 1px solid #ddd; padding: 10px; text-align: center; font-weight: bold; color: {risk_color};">{row['Pyruvate (μM)']:.1f} μM</td>
+                                <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">&lt; 200 μM</td>
+                            </tr>
+                        </table>
+                        <h3 style="margin-top: 25px; color: {risk_color}; border-bottom: 1px solid #eee; padding-bottom: 5px;">Diagnosis: {row['Status']}</h3>
+                        <p style="font-size: 14px; line-height: 1.5;"><b>Clinical Recommendation:</b><br>{rec_text}</p>
+                        <p style="margin-top: 40px; font-size: 12px; color: #777; text-align: center;">Generated by PyrLac Glow Automated Diagnostic System.<br>For research and pre-screening use only. Not a definitive diagnosis.</p>
+                    </div>
+                    """
+                    
+                    # 在网页中预览报告单
+                    st.markdown(report_html, unsafe_allow_html=True)
+                    
+                    # 下载按钮
+                    st.download_button(
+                        label=f"📥 Download Report for {row['Sample ID']} (HTML)",
+                        data=report_html.encode('utf-8'),
+                        file_name=f"PyrLac_Report_{row['Sample ID']}.html",
+                        mime="text/html",
+                        key=f"dl_report_{row['Sample ID']}"
+                    )
+
+            st.divider()
             if st.button("🗑 Clear All Data"):
                 st.session_state['saved_lac'] = {}
                 st.session_state['saved_pyr'] = {}
