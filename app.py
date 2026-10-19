@@ -28,18 +28,23 @@ st.set_page_config(
 st.markdown("""
 <style>
     html, body, [class*="css"] { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    .formula-banner {
+        background: linear-gradient(90deg, #433262 0%, #6A3AB2 100%);
+        color: white; padding: 15px; border-radius: 10px;
+        text-align: center; font-size: 20px; font-weight: bold;
+        margin-bottom: 25px; box-shadow: 0 4px 15px rgba(106,58,178,0.3);
+    }
     .maintenance-box {
         background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%); 
         color: #856404; border-left: 6px solid #ffc107;
         padding: 16px 20px; border-radius: 8px; margin-bottom: 25px; 
-        font-weight: 600; font-size: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        font-weight: 600; font-size: 15px;
     }
     .diagnosis-card {
         padding: 20px; border-radius: 12px; margin-bottom: 15px;
         background-color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         border-left: 8px solid #ccc; transition: transform 0.2s;
     }
-    .diagnosis-card:hover { transform: translateY(-3px); }
     .card-title { font-size: 20px; font-weight: 800; color: #333; margin-bottom: 10px; }
     .card-data { font-size: 15px; color: #555; margin-bottom: 5px; }
     .card-badge {
@@ -59,7 +64,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("🧬 PyrLac Glow - Diagnostic Terminal")
-st.markdown("**Ratiometric Fluorescence Mode:** Software calculates Ratio = ADC_485 / ADC_420 before concentration inversion.")
+st.markdown('<div class="formula-banner">Ratiometric Signal (Ratio) = ADC (485 nm) / ADC (420 nm)</div>', unsafe_allow_html=True)
 
 # ==========================================
 # 2. 侧边栏
@@ -90,19 +95,16 @@ def get_adc_values(probe_type, current_well):
             ser.reset_input_buffer()
             line = ser.readline().decode('utf-8').strip()
             ser.close()
-            # 假设硬件传来的格式是 "420:120, 485:350"
             match = re.search(r"420:(\d+),\s*485:(\d+)", line)
             if match:
                 return float(match.group(1)), float(match.group(2))
         except Exception:
             pass 
     
-    # 模拟数据：W-05 双高(癌症)，W-06 乳酸高(炎症)，W-07 正常
     time.sleep(0.2)
-    adc_420 = random.uniform(90, 110) # 参考通道较稳定
-    
+    adc_420 = random.uniform(90, 110)
     if probe_type == "Lactate":
-        if current_well == 5: adc_485 = random.uniform(550, 650) # Ratio 高
+        if current_well == 5: adc_485 = random.uniform(550, 650)
         elif current_well == 6: adc_485 = random.uniform(450, 550)
         else: adc_485 = random.uniform(120, 200)
     else:
@@ -140,8 +142,18 @@ with tab1:
             y420 = [float(i) for i in lac_y420.split(',')]
             y485 = [float(i) for i in lac_y485.split(',')]
             
-            # 计算荧光比率
+            # ★ 核心计算：485 / 420
             ratios = [y485[i] / y420[i] for i in range(len(xd))]
+            
+            # 展示计算过程表格
+            st.markdown("**Data Processing (Ratio Calculation)**")
+            df_calc = pd.DataFrame({
+                "Conc. (mM)": xd,
+                "ADC_420": y420,
+                "ADC_485": y485,
+                "Ratio (485/420)": [round(r, 3) for r in ratios]
+            })
+            st.dataframe(df_calc, use_container_width=True, hide_index=True)
             
             res = linregress(xd, ratios)
             st.session_state['lac_slope'] = res.slope
@@ -150,9 +162,9 @@ with tab1:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=xd, y=ratios, mode='markers', name='Standards', marker=dict(color='#0068c9', size=12)))
             fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * np.array(xd), mode='lines', name='Fit', line=dict(color='#333', width=3, dash='dash')))
-            fig.update_layout(title="Lactate Standard Curve (Ratio vs Conc)", xaxis_title="Conc (mM)", yaxis_title="Ratio (485/420)", height=300, margin=dict(l=0, r=0, t=40, b=0))
+            fig.update_layout(title="Lactate Calibration (Ratio vs Conc)", xaxis_title="Conc (mM)", yaxis_title="Ratio (485/420)", height=300, margin=dict(l=0, r=0, t=40, b=0))
             st.plotly_chart(fig, use_container_width=True)
-            st.success(f"Fitted: Ratio = {res.slope:.3f}*Conc + {res.intercept:.3f} | R² = {res.rvalue**2:.4f}")
+            st.success(f"Fitted: Ratio = {res.slope:.3f} * Conc + {res.intercept:.3f} | R² = {res.rvalue**2:.4f}")
 
     with col2:
         st.subheader("Pyruvate Probe")
@@ -165,7 +177,17 @@ with tab1:
             y420 = [float(i) for i in pyr_y420.split(',')]
             y485 = [float(i) for i in pyr_y485.split(',')]
             
+            # ★ 核心计算：485 / 420
             ratios = [y485[i] / y420[i] for i in range(len(xd))]
+            
+            st.markdown("**Data Processing (Ratio Calculation)**")
+            df_calc = pd.DataFrame({
+                "Conc. (μM)": xd,
+                "ADC_420": y420,
+                "ADC_485": y485,
+                "Ratio (485/420)": [round(r, 3) for r in ratios]
+            })
+            st.dataframe(df_calc, use_container_width=True, hide_index=True)
             
             res = linregress(xd, ratios)
             st.session_state['pyr_slope'] = res.slope
@@ -174,9 +196,9 @@ with tab1:
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=xd, y=ratios, mode='markers', name='Standards', marker=dict(color='#ff4b4b', size=12)))
             fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * np.array(xd), mode='lines', name='Fit', line=dict(color='#333', width=3, dash='dash')))
-            fig.update_layout(title="Pyruvate Standard Curve (Ratio vs Conc)", xaxis_title="Conc (μM)", yaxis_title="Ratio (485/420)", height=300, margin=dict(l=0, r=0, t=40, b=0))
+            fig.update_layout(title="Pyruvate Calibration (Ratio vs Conc)", xaxis_title="Conc (μM)", yaxis_title="Ratio (485/420)", height=300, margin=dict(l=0, r=0, t=40, b=0))
             st.plotly_chart(fig, use_container_width=True)
-            st.success(f"Fitted: Ratio = {res.slope:.3f}*Conc + {res.intercept:.3f} | R² = {res.rvalue**2:.4f}")
+            st.success(f"Fitted: Ratio = {res.slope:.4f} * Conc + {res.intercept:.3f} | R² = {res.rvalue**2:.4f}")
 
 # ------------------------------------------
 # Tab 2: 硬件扫描
@@ -204,7 +226,6 @@ with tab2:
                 adc_420, adc_485 = get_adc_values(probe_type, i)
                 ratio = adc_485 / adc_420
                 
-                # 反推浓度
                 if probe_type == "Lactate":
                     conc = max(0, (ratio - lac_int) / lac_slope)
                 else:
@@ -214,7 +235,7 @@ with tab2:
                     "Sample ID": f"W-{i:02d}",
                     "ADC_420": round(adc_420, 1),
                     "ADC_485": round(adc_485, 1),
-                    "Ratio": round(ratio, 3),
+                    "Ratio (485/420)": round(ratio, 3),
                     "Conc.": round(conc, 2)
                 })
                 progress_bar.progress(i / num_wells)
