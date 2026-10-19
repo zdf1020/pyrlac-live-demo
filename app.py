@@ -1,226 +1,170 @@
-import streamlit as st
-import numpy as np
-import plotly.graph_objects as go
-from scipy.stats import linregress
+                <!-- ==================================================== -->
+                <!-- Interactive Streamlit Simulation Component (Joint Diagnosis) -->
+                <!-- ==================================================== -->
+                <div style="display: flex; flex-direction: column; gap: 15px; margin: 30px 0; font-family: 'Times New Roman', Times, serif;">
+                    <div style="background: #e8f4f8; color: #0068c9; padding: 10px 15px; border-radius: 8px; font-size: 14px; font-weight: bold; text-align: center; border: 1px solid #0068c9;">
+                        💡 Interactive Demo: Single sample split into two aliquots. Input both independent ADC signals to see the joint diagnosis.
+                    </div>
 
-# ==========================================
-# 1. 页面基础配置与 CSS 注入
-# ==========================================
-st.set_page_config(
-    page_title="PyrLac Glow | Diagnostic Interface",
-    page_icon="🧬",
-    layout="wide"
-)
+                    <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; text-align: left;">
+                        <!-- Left: Input and Chart -->
+                        <div style="flex: 1; min-width: 350px; max-width: 500px; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.08); background: #fff; padding: 20px;">
+                            <h4 style="margin-top: 0; color: #333;">🧪 Sample Measurements</h4>
+                            
+                            <div style="margin-bottom: 10px; font-size: 14px; font-weight: bold; color: #333;">Lactate Channel ADC (L4)</div>
+                            <input type="number" id="adc-lac" value="800" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 15px; box-sizing: border-box;">
+                            
+                            <div style="margin-bottom: 10px; font-size: 14px; font-weight: bold; color: #333;">Pyruvate Channel ADC (P2)</div>
+                            <input type="number" id="adc-pyr" value="300" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 15px; box-sizing: border-box;">
+                            
+                            <button onclick="runJointDiagnosis()" style="width: 100%; background: #0068c9; color: white; border: none; padding: 10px; border-radius: 6px; font-size: 15px; font-weight: bold; cursor: pointer;">🩺 Run Joint Diagnosis</button>
+                            
+                            <div style="height: 220px; background: #fafafa; border: 1px dashed #ccc; border-radius: 6px; display: flex; align-items: center; justify-content: center; margin-top: 20px; position: relative;">
+                                <canvas id="plot-canvas" width="420" height="220"></canvas>
+                            </div>
+                        </div>
 
-# 注入自定义 CSS 美化卡片
-st.markdown("""
-<style>
-    /* 指标卡片样式 */
-    .metric-card {
-        background-color: white;
-        padding: 24px 30px;
-        border-radius: 16px;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-        border-left: 8px solid #ccc;
-        margin-bottom: 20px;
-        transition: all 0.3s ease;
-    }
-    .metric-value { font-size: 42px; font-weight: 800; line-height: 1.1; }
-    .metric-label { font-size: 14px; color: #666; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;}
-    .risk-text { font-size: 28px; font-weight: 800; margin-top: 12px;}
-    .note-text { font-size: 16px; color: #555; margin-top: 12px; line-height: 1.6;}
-    
-    /* 按钮美化 */
-    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
-</style>
-""", unsafe_allow_html=True)
-
-st.title("🧬 PyrLac Glow - Rapid Diagnostic Interface")
-st.markdown("**Hardware:** Dual-Probe Detection | **Sensors:** L4 (Lactate) & P2 (Pyruvate)")
-
-# ==========================================
-# 2. 侧边栏：说明与阈值
-# ==========================================
-with st.sidebar:
-    st.header("ℹ️ Workflow & Thresholds")
-    st.markdown("""
-    1. **Calibration:** Fit standard curves for both L4 and P2 proteins.
-    2. **Diagnosis:** Input sample ADC signals for real-time joint diagnosis.
-    """)
-    st.divider()
-    st.info("**Clinical Thresholds:**")
-    st.markdown("- **Lactate (L4):** `5.0 mM`\n- **Pyruvate (P2):** `200 μM`")
-
-# ==========================================
-# 3. 核心功能区：Tabs
-# ==========================================
-tab1, tab2 = st.tabs(["📈 1. Calibration Mode", "🧪 2. Diagnostic Interface"])
-
-# ------------------------------------------
-# Tab 1: 双通道校准
-# ------------------------------------------
-with tab1:
-    st.header("Dual-Probe Calibration")
-    col1, col2 = st.columns(2)
-    
-    # 左侧：L4 校准
-    with col1:
-        st.subheader("L4 Protein (Lactate)")
-        l4_x = st.text_input("Lactate Standards (mM)", value="0.0, 1.0, 2.0, 5.0, 10.0")
-        l4_y = st.text_input("L4 ADC Signals", value="50.1, 128.4, 255.3, 605.7, 1210.2")
-        if st.button("Run L4 Calibration", type="primary"):
-            try:
-                xd = [float(i) for i in l4_x.split(',')]
-                yd = [float(i) for i in l4_y.split(',')]
-                res = linregress(xd, yd)
-                st.session_state['l4_slope'] = res.slope
-                st.session_state['l4_int'] = res.intercept
-                
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=xd, y=yd, mode='markers', name='Data', marker=dict(color='#0068c9', size=10)))
-                fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * np.array(xd), mode='lines', name='Fit', line=dict(color='black', dash='dash')))
-                fig.update_layout(title="L4 Standard Curve", xaxis_title="Conc (mM)", yaxis_title="ADC", height=300, margin=dict(l=0, r=0, t=30, b=0))
-                st.plotly_chart(fig, use_container_width=True)
-                st.success(f"**Equation:** y = {res.slope:.2f}x + {res.intercept:.2f} | **R² = {res.rvalue**2:.4f}**")
-            except Exception as e:
-                st.error("Input parsing error.")
-
-    # 右侧：P2 校准
-    with col2:
-        st.subheader("P2 Protein (Pyruvate)")
-        p2_x = st.text_input("Pyruvate Standards (μM)", value="0, 100, 200, 500, 1000")
-        p2_y = st.text_input("P2 ADC Signals", value="45.2, 152.8, 310.5, 782.1, 1550.8")
-        if st.button("Run P2 Calibration", type="primary"):
-            try:
-                xd = [float(i) for i in p2_x.split(',')]
-                yd = [float(i) for i in p2_y.split(',')]
-                res = linregress(xd, yd)
-                st.session_state['p2_slope'] = res.slope
-                st.session_state['p2_int'] = res.intercept
-                
-                fig = go.Figure()
-                fig.add_trace(go.Scatter(x=xd, y=yd, mode='markers', name='Data', marker=dict(color='#ff4b4b', size=10)))
-                fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * np.array(xd), mode='lines', name='Fit', line=dict(color='black', dash='dash')))
-                fig.update_layout(title="P2 Standard Curve", xaxis_title="Conc (μM)", yaxis_title="ADC", height=300, margin=dict(l=0, r=0, t=30, b=0))
-                st.plotly_chart(fig, use_container_width=True)
-                st.success(f"**Equation:** y = {res.slope:.2f}x + {res.intercept:.2f} | **R² = {res.rvalue**2:.4f}**")
-            except Exception as e:
-                st.error("Input parsing error.")
-
-
-# ------------------------------------------
-# Tab 2: 实时联合诊断
-# ------------------------------------------
-with tab2:
-    # 检查是否已经完成了校准
-    if 'l4_slope' not in st.session_state or 'p2_slope' not in st.session_state:
-        st.warning("⚠️ Please complete calibration for both L4 and P2 in Tab 1 first.")
-        
-        # 提供默认值供没有校准直接查看的情况
-        l4_slope, l4_int = 115.0, 50.0
-        p2_slope, p2_int = 1.5, 40.0
-    else:
-        l4_slope = st.session_state['l4_slope']
-        l4_int = st.session_state['l4_int']
-        p2_slope = st.session_state['p2_slope']
-        p2_int = st.session_state['p2_int']
-
-    st.header("Joint Diagnostic Interface")
-    
-    col_input, col_plot = st.columns([1, 2], gap="large")
-    
-    # 左侧：输入与结果
-    with col_input:
-        st.markdown("### 🧪 Sample Inputs")
-        st.write("Enter the ADC signals from the two aliquots.")
-        
-        adc_lac = st.number_input("Lactate Channel (L4) ADC", value=800.0, step=10.0)
-        adc_pyr = st.number_input("Pyruvate Channel (P2) ADC", value=300.0, step=10.0)
-        
-        # 实时计算浓度
-        conc_lac = max(0, (adc_lac - l4_int) / l4_slope)
-        conc_pyr = max(0, (adc_pyr - p2_int) / p2_slope)
-
-        st.markdown("---")
-        st.markdown("### 🩺 Diagnostic Result")
-        
-        # 象限判定逻辑
-        if conc_lac >= 5.0 and conc_pyr >= 200:
-            status, color = "High Cancer Risk", "#B91C1C"
-            note = "Warburg effect signature detected. Both biomarkers are synchronously elevated."
-        elif conc_lac >= 5.0 and conc_pyr < 200:
-            status, color = "Inflammation / Ischemia", "#A86A1A"
-            note = "Lactate is elevated but pyruvate remains normal. Likely benign."
-        elif conc_lac < 5.0 and conc_pyr >= 200:
-            status, color = "High Pyruvate", "#5A4A9A"
-            note = "Pyruvate is elevated but lactate is normal. Not typical of Warburg effect."
-        else:
-            status, color = "Normal", "#2C6E4A"
-            note = "Both biomarkers are within normal ranges."
-
-        # 结果卡片 (动态颜色)
-        st.markdown(f"""
-        <div class="metric-card" style="border-left-color: {color};">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                <div>
-                    <div class="metric-label" style="color: #0068c9;">Lactate (L4)</div>
-                    <div class="metric-value" style="color: #0068c9;">{conc_lac:.2f} <span style="font-size:16px; font-weight:normal;">mM</span></div>
+                        <!-- Right: Result Card -->
+                        <div style="flex: 1; min-width: 350px; max-width: 500px; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 6px 16px rgba(0,0,0,0.08); background: #fff; padding: 20px;">
+                            <h4 style="margin-top: 0; color: #333;">📋 Diagnostic Result</h4>
+                            
+                            <div id="result-box" style="display: none; padding: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-left: 6px solid #ccc; transition: all 0.3s ease;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                                    <div>
+                                        <span style="font-size: 13px; color: #666;">Lactate (L4)</span>
+                                        <div style="font-size: 24px; font-weight: bold; color: #0068c9;"><span id="res-lac">--</span> <span style="font-size: 14px; font-weight: normal;">mM</span></div>
+                                    </div>
+                                    <div>
+                                        <span style="font-size: 13px; color: #666;">Pyruvate (P2)</span>
+                                        <div style="font-size: 24px; font-weight: bold; color: #ff4b4b;"><span id="res-pyr">--</span> <span style="font-size: 14px; font-weight: normal;">μM</span></div>
+                                    </div>
+                                </div>
+                                <hr style="margin: 10px 0;">
+                                <div id="res-status" style="font-size: 22px; font-weight: bold; margin-bottom: 10px;">--</div>
+                                <div id="res-note" style="font-size: 13px; color: #555; line-height: 1.4;">--</div>
+                            </div>
+                            <div id="placeholder-box" style="text-align: center; color: #999; margin-top: 50px;">
+                                Run diagnosis to see results
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div style="text-align: right;">
-                    <div class="metric-label" style="color: #ff4b4b;">Pyruvate (P2)</div>
-                    <div class="metric-value" style="color: #ff4b4b;">{conc_pyr:.0f} <span style="font-size:16px; font-weight:normal;">μM</span></div>
-                </div>
-            </div>
-            <hr style="margin: 15px 0; border-top: 1px solid #eee;">
-            <div class="metric-label">Risk Classification</div>
-            <div class="risk-text" style="color: {color};">{status}</div>
-            <div class="note-text">{note}</div>
-        </div>
-        """, unsafe_allow_html=True)
+                <p class="hwmod-caption" style="text-align: center;">Fig. 17. Interactive simulation of the Streamlit interface for Dual-Probe Joint Diagnosis.</p>
 
+                <!-- Simulation JS Script -->
+                <script>
+                (function() {
+                    // 默认校准参数（模拟真实实验数据）
+                    const l4_slope = 115.0;
+                    const l4_int = 50.0;
+                    const p2_slope = 1.5;
+                    const p2_int = 40.0;
 
-    # 右侧：二维象限图
-    with col_plot:
-        st.markdown("### 📊 Metabolic Fingerprint Quadrant")
-        
-        fig = go.Figure()
+                    window.runJointDiagnosis = function() {
+                        const adcLac = parseFloat(document.getElementById('adc-lac').value);
+                        const adcPyr = parseFloat(document.getElementById('adc-pyr').value);
+                        if (isNaN(adcLac) || isNaN(adcPyr)) return;
 
-        # 画四个象限的背景色
-        fig.add_shape(type="rect", x0=0, y0=0, x1=200, y1=5, fillcolor="#bfe3c8", opacity=0.4, line_width=0) # Normal
-        fig.add_shape(type="rect", x0=0, y0=5, x1=200, y1=30, fillcolor="#f6d9a8", opacity=0.4, line_width=0) # Inflammation
-        fig.add_shape(type="rect", x0=200, y0=5, x1=800, y1=30, fillcolor="#e9b8d4", opacity=0.4, line_width=0) # Cancer
-        fig.add_shape(type="rect", x0=200, y0=0, x1=800, y1=5, fillcolor="#c9c4e6", opacity=0.4, line_width=0) # High Pyr
-        
-        # 画阈值虚线
-        fig.add_shape(type="line", x0=200, y0=0, x1=200, y1=30, line=dict(color="#6A3AB2", width=2, dash="dash"))
-        fig.add_shape(type="line", x0=0, y0=5, x1=800, y1=5, line=dict(color="#6A3AB2", width=2, dash="dash"))
-        
-        # 添加象限文字标签
-        fig.add_annotation(x=100, y=2.5, text="Normal", showarrow=False, font=dict(color="#2C6E4A", size=14, weight="bold"))
-        fig.add_annotation(x=100, y=15, text="Inflammation", showarrow=False, font=dict(color="#A86A1A", size=14, weight="bold"))
-        fig.add_annotation(x=500, y=15, text="High Cancer Risk", showarrow=False, font=dict(color="#B91C1C", size=16, weight="bold"))
-        fig.add_annotation(x=500, y=2.5, text="High Pyruvate", showarrow=False, font=dict(color="#5A4A9A", size=14, weight="bold"))
+                        // 1. 计算浓度
+                        const concLac = Math.max(0, (adcLac - l4_int) / l4_slope); // mM
+                        const concPyr = Math.max(0, (adcPyr - p2_int) / p2_slope); // uM
 
-        # 绘制当前样本点
-        fig.add_trace(go.Scatter(
-            x=[min(conc_pyr, 800)], 
-            y=[min(conc_lac, 30)],
-            mode='markers',
-            marker=dict(size=18, color=color, line=dict(width=3, color='white'), symbol='circle'),
-            name='Current Sample',
-            hoverinfo='text',
-            text=[f"Lac: {conc_lac:.1f} mM<br>Pyr: {conc_pyr:.0f} μM"]
-        ))
+                        // 2. 判断象限
+                        let status, color, note;
+                        if (concLac >= 5.0 && concPyr >= 200) {
+                            status = "High Cancer Risk"; color = "#B91C1C";
+                            note = "Warburg effect signature detected. Both biomarkers are synchronously elevated.";
+                        } else if (concLac >= 5.0 && concPyr < 200) {
+                            status = "Inflammation / Ischemia"; color = "#A86A1A";
+                            note = "Lactate is elevated but pyruvate remains normal. Likely benign.";
+                        } else if (concLac < 5.0 && concPyr >= 200) {
+                            status = "High Pyruvate"; color = "#5A4A9A";
+                            note = "Pyruvate is elevated but lactate is normal. Not typical of Warburg effect.";
+                        } else {
+                            status = "Normal"; color = "#2C6E4A";
+                            note = "Both biomarkers are within normal ranges.";
+                        }
 
-        fig.update_layout(
-            xaxis_title="Pyruvate Concentration (μM)",
-            yaxis_title="Lactate Concentration (mM)",
-            xaxis=dict(range=[0, 800], showgrid=False),
-            yaxis=dict(range=[0, 30], showgrid=False),
-            height=500,
-            margin=dict(l=0, r=0, t=10, b=0),
-            showlegend=False,
-            plot_bgcolor='white'
-        )
-        
-        st.plotly_chart(fig, use_container_width=True)
+                        // 3. 更新 UI 卡片
+                        document.getElementById('placeholder-box').style.display = 'none';
+                        const box = document.getElementById('result-box');
+                        box.style.display = 'block';
+                        box.style.borderLeftColor = color;
+                        
+                        document.getElementById('res-lac').innerText = concLac.toFixed(2);
+                        document.getElementById('res-pyr').innerText = concPyr.toFixed(1);
+                        
+                        const statusEl = document.getElementById('res-status');
+                        statusEl.innerText = status;
+                        statusEl.style.color = color;
+                        document.getElementById('res-note').innerText = note;
+
+                        // 4. 绘制 Canvas 象限图
+                        drawScatter(concPyr, concLac);
+                    };
+
+                    function drawScatter(pyr, lac) {
+                        const canvas = document.getElementById('plot-canvas');
+                        const ctx = canvas.getContext('2d');
+                        const w = canvas.width, h = canvas.height;
+                        const padL = 40, padB = 30, padR = 10, padT = 10;
+                        const plotW = w - padL - padR;
+                        const plotH = h - padT - padB;
+
+                        ctx.clearRect(0, 0, w, h);
+
+                        // 坐标轴映射 (X: 0-600 uM, Y: 0-25 mM)
+                        function mapX(x) { return padL + (x / 600) * plotW; }
+                        function mapY(y) { return h - padB - (y / 25) * plotH; }
+
+                        // 画背景象限
+                        // Normal (左下)
+                        ctx.fillStyle = 'rgba(191, 227, 200, 0.5)';
+                        ctx.fillRect(mapX(0), mapY(5), mapX(200)-mapX(0), mapY(0)-mapY(5));
+                        // Inflammation (左上)
+                        ctx.fillStyle = 'rgba(246, 217, 168, 0.5)';
+                        ctx.fillRect(mapX(0), mapY(25), mapX(200)-mapX(0), mapY(5)-mapY(25));
+                        // High Cancer (右上)
+                        ctx.fillStyle = 'rgba(233, 184, 212, 0.5)';
+                        ctx.fillRect(mapX(200), mapY(25), mapX(600)-mapX(200), mapY(5)-mapY(25));
+                        // High Pyruvate (右下)
+                        ctx.fillStyle = 'rgba(201, 196, 230, 0.5)';
+                        ctx.fillRect(mapX(200), mapY(5), mapX(600)-mapX(200), mapY(0)-mapY(5));
+
+                        // 画阈值线
+                        ctx.strokeStyle = '#6A3AB2'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
+                        ctx.beginPath(); ctx.moveTo(mapX(200), padT); ctx.lineTo(mapX(200), h - padB); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(padL, mapY(5)); ctx.lineTo(w - padR, mapY(5)); ctx.stroke();
+                        ctx.setLineDash([]);
+
+                        // 画坐标轴和标签
+                        ctx.strokeStyle = '#666'; ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.moveTo(padL, padT); ctx.lineTo(padL, h-padB); ctx.lineTo(w-padR, h-padB); ctx.stroke();
+                        
+                        ctx.fillStyle = '#666'; ctx.font = '11px Arial'; ctx.textAlign = 'center';
+                        ctx.fillText('Pyruvate (μM)', w/2, h-5);
+                        ctx.save(); ctx.translate(12, h/2); ctx.rotate(-Math.PI/2); ctx.fillText('Lactate (mM)', 0, 0); ctx.restore();
+
+                        // 画散点
+                        const dotX = mapX(Math.min(pyr, 600));
+                        const dotY = mapY(Math.min(lac, 25));
+                        
+                        ctx.beginPath(); ctx.arc(dotX, dotY, 8, 0, Math.PI*2);
+                        
+                        // 根据所在区域变色
+                        if (lac >= 5 && pyr >= 200) ctx.fillStyle = '#B91C1C';
+                        else if (lac >= 5 && pyr < 200) ctx.fillStyle = '#A86A1A';
+                        else if (lac < 5 && pyr >= 200) ctx.fillStyle = '#5A4A9A';
+                        else ctx.fillStyle = '#2C6E4A';
+
+                        ctx.fill();
+                        ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+                    }
+
+                    // 页面加载后自动跑一次示例
+                    window.addEventListener('DOMContentLoaded', () => {
+                        setTimeout(window.runJointDiagnosis, 500);
+                    });
+                })();
+                </script>
+                <!-- ==================================================== -->
