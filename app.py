@@ -166,7 +166,7 @@ LANG = {
 }
 
 # ==========================================
-# 2. 全局 CSS（美化 + 公式横幅修复）
+# 2. 全局 CSS（解决显示问题 + 美化）
 # ==========================================
 st.markdown("""
 <style>
@@ -175,153 +175,159 @@ st.markdown("""
         --primary-dark: #433262;
         --primary-light: #8B5CF6;
         --accent: #00B8D4;
-        --success: #10B981;
-        --warning: #F59E0B;
-        --danger: #EF4444;
-        --bg-soft: #F9FAFB;
         --border-soft: #E5E7EB;
         --text-dark: #1F2937;
         --text-muted: #6B7280;
-        --shadow-sm: 0 2px 10px rgba(106,58,178,0.06);
-        --shadow-md: 0 4px 16px rgba(106,58,178,0.12);
-        --shadow-lg: 0 8px 24px rgba(106,58,178,0.18);
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+        --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
     }
     html, body, [class*="css"] {
         font-family: 'Inter', 'Segoe UI', Roboto, -apple-system, sans-serif;
         color: var(--text-dark);
     }
     .stApp { background: linear-gradient(135deg, #F9FAFB 0%, #EEF2FF 100%); }
-    .block-container { padding-top: 0.6rem !important; padding-bottom: 0.2rem !important; max-width: 100%; }
+
+    /* 1. 解决顶部被遮挡的问题 */
+    .block-container { 
+        padding-top: 2.5rem !important; /* 调大顶部留白 */
+        padding-bottom: 1rem !important; 
+        max-width: 100% !important; 
+    }
     .element-container { margin-bottom: 0.15rem !important; }
     div[data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 0.7rem !important; }
+
+    /* 2. 解决 H1 渐变导致不显示的问题，改用纯深紫色 */
     h1 {
-        background: linear-gradient(90deg, #433262 0%, #6A3AB2 55%, #00B8D4 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        background-clip: text; font-weight: 800 !important; letter-spacing: -0.5px;
-        font-size: 21px !important; margin: 0 0 6px 0 !important; padding: 0 !important;
+        color: var(--primary-dark) !important;
+        -webkit-text-fill-color: var(--primary-dark) !important;
+        font-weight: 800 !important; 
+        letter-spacing: -0.5px;
+        font-size: 22px !important; 
+        margin: 0 0 10px 0 !important; 
+        padding: 0 !important;
     }
     h2 { font-size: 16px !important; margin: 2px 0 4px 0 !important; color: var(--primary-dark) !important; font-weight: 700 !important; }
     h3 { font-size: 14px !important; margin: 2px 0 !important; color: var(--primary-dark) !important; font-weight: 700 !important; }
     p, label, .stCaption { font-size: 12.5px !important; }
 
-    /* ========== 公式横幅（修复透明填充 + 换行 + 防裁剪） ========== */
+    /* 3. 公式横幅 */
     .formula-banner {
         background: linear-gradient(135deg, #433262 0%, #6A3AB2 60%, #8B5CF6 100%);
         color: #fff !important;
         -webkit-text-fill-color: #fff !important;
-        -webkit-background-clip: border-box !important;
-        background-clip: border-box !important;
         padding: 10px 18px;
         border-radius: 10px;
         text-align: center;
-        font-size: 13.5px;
+        font-size: 14px;
         font-weight: 700;
-        margin-bottom: 10px;
-        box-shadow: 0 6px 20px rgba(106,58,178,0.35);
+        margin-bottom: 15px;
+        box-shadow: 0 4px 15px rgba(106,58,178,0.3);
         border: 1px solid rgba(255,255,255,0.18);
         white-space: normal !important;
         word-wrap: break-word;
-        overflow: visible !important;
         line-height: 1.45;
-        letter-spacing: 0.3px;
         display: block;
         width: 100%;
         box-sizing: border-box;
     }
 
+    /* 卡片背景 */
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: #ffffff !important; border-radius: 12px !important;
+        background: #ffffff !important; 
+        border-radius: 12px !important;
         border: 1px solid var(--border-soft) !important;
         box-shadow: var(--shadow-sm) !important;
-        padding: 10px 14px !important; transition: box-shadow 0.25s ease;
+        padding: 15px 20px !important; 
+        transition: box-shadow 0.25s ease;
     }
     div[data-testid="stVerticalBlockBorderWrapper"]:hover { box-shadow: var(--shadow-md) !important; }
-    .stButton > button {
+
+    /* 按钮 */
+    .stButton > button, .stDownloadButton > button {
         background: linear-gradient(135deg, #6A3AB2 0%, #8B5CF6 100%) !important;
-        color: #fff !important; border: none !important; border-radius: 8px !important;
-        font-weight: 600 !important; padding: 6px 14px !important; font-size: 13px !important;
+        color: #fff !important; 
+        border: none !important; 
+        border-radius: 8px !important;
+        font-weight: 600 !important; 
+        padding: 8px 14px !important; 
+        font-size: 13px !important;
         box-shadow: 0 3px 10px rgba(106,58,178,0.3) !important;
-        transition: all 0.2s ease !important; width: 100% !important;
+        transition: all 0.2s ease !important; 
+        width: 100% !important;
     }
-    .stButton > button:hover {
+    .stButton > button:hover, .stDownloadButton > button:hover {
         transform: translateY(-2px) !important;
-        box-shadow: 0 7px 18px rgba(106,58,178,0.45) !important;
-        filter: brightness(1.08);
+        box-shadow: 0 6px 15px rgba(106,58,178,0.4) !important;
     }
-    .stDownloadButton > button {
-        background: linear-gradient(135deg, #00B8D4 0%, #06B6D4 100%) !important;
-        color: #fff !important; border: none !important; border-radius: 8px !important;
-        font-weight: 600 !important; padding: 6px 14px !important; font-size: 13px !important;
-        box-shadow: 0 3px 10px rgba(0,184,212,0.3) !important;
-        transition: all 0.2s ease !important; width: 100% !important;
-    }
-    .stDownloadButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 7px 18px rgba(0,184,212,0.45) !important;
-        filter: brightness(1.08);
-    }
+
+    /* 4. 修复 Tab 选中样式 */
     .stTabs [data-baseweb="tab-list"] {
-        background: #ffffff; border-radius: 10px; padding: 4px; gap: 4px;
-        box-shadow: var(--shadow-sm); border: 1px solid var(--border-soft);
+        background: transparent !important; 
+        border-bottom: 2px solid var(--border-soft) !important;
+        gap: 8px;
+        padding: 0;
+        box-shadow: none !important;
     }
     .stTabs [data-baseweb="tab"] {
-        border-radius: 7px !important; font-weight: 600 !important; font-size: 13px !important;
-        color: var(--text-muted) !important; padding: 6px 14px !important; height: 34px !important;
-        transition: all 0.2s ease !important; border-bottom: none !important;
+        background: transparent !important;
+        border-radius: 8px 8px 0 0 !important;
+        padding: 8px 16px !important;
+        color: var(--text-muted) !important;
+        font-weight: 600 !important;
+        border: none !important;
+        font-size: 13.5px !important;
     }
-    .stTabs [data-baseweb="tab"]:hover { background: #F3F0FF !important; color: var(--primary) !important; }
-    .stTabs [aria-selected="true"] {
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #F3F0FF !important;
+        color: var(--primary) !important;
+    }
+    .stTabs button[aria-selected="true"] {
         background: linear-gradient(135deg, #6A3AB2 0%, #8B5CF6 100%) !important;
-        color: #fff !important; box-shadow: 0 3px 10px rgba(106,58,178,0.35) !important;
+        color: #FFFFFF !important;
+        border-radius: 8px 8px 0 0 !important;
+        box-shadow: 0 -2px 10px rgba(106,58,178,0.1) !important;
+        border-bottom: 2px solid #8B5CF6 !important;
     }
-    .stTabs [data-baseweb="tab-highlight"] { background-color: transparent !important; }
-    .stTabs [data-baseweb="tab-border"] { background-color: transparent !important; }
-    .stTabs [data-baseweb="tab-panel"] { padding-top: 6px; }
+    .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {
+        display: none !important; /* 隐藏默认高亮条 */
+    }
+    .stTabs [data-baseweb="tab-panel"] { padding-top: 10px; }
+
+    /* 其他 UI 元素 */
     div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {
-        border-radius: 10px !important; overflow: hidden !important;
-        box-shadow: var(--shadow-sm) !important; border: 1px solid var(--border-soft) !important;
+        border-radius: 8px !important; overflow: hidden !important;
+        border: 1px solid var(--border-soft) !important;
     }
-    .stAlert { border-radius: 10px !important; font-size: 12.5px !important; border-left-width: 5px !important; padding: 8px 14px !important; }
+    .stAlert { border-radius: 8px !important; font-size: 12.5px !important; padding: 10px 14px !important; }
     div[data-testid="stExpander"] {
-        border-radius: 10px !important; border: 1px solid var(--border-soft) !important;
-        box-shadow: var(--shadow-sm) !important; overflow: hidden !important;
-        margin-bottom: 4px !important; background: #fff !important;
+        border-radius: 8px !important; border: 1px solid var(--border-soft) !important;
+        margin-bottom: 8px !important; background: #fff !important;
     }
     div[data-testid="stExpander"] details > summary {
-        background: linear-gradient(90deg, #F9FAFB 0%, #F3F0FF 100%) !important;
-        font-weight: 600 !important; padding: 7px 14px !important; font-size: 13px !important;
-        transition: background 0.2s ease !important;
-    }
-    div[data-testid="stExpander"] details > summary:hover {
-        background: linear-gradient(90deg, #F3F0FF 0%, #E9E3FF 100%) !important;
+        background: #F9FAFB !important;
+        font-weight: 600 !important; padding: 8px 14px !important; font-size: 13px !important;
+        color: var(--primary-dark) !important;
     }
     div[data-testid="stProgress"] > div > div > div > div {
         background: linear-gradient(90deg, #6A3AB2 0%, #00B8D4 100%) !important; border-radius: 6px;
     }
     .stRadio > div {
         background: #fff; border-radius: 8px; padding: 4px 10px;
-        border: 1px solid var(--border-soft); box-shadow: var(--shadow-sm);
+        border: 1px solid var(--border-soft);
     }
     section[data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #FFFFFF 0%, #F3F0FF 100%);
-        border-right: 1px solid var(--border-soft);
-    }
-    section[data-testid="stSidebar"] h2 {
-        background: linear-gradient(90deg, #433262 0%, #6A3AB2 100%);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+        background: #FFFFFF; border-right: 1px solid var(--border-soft);
     }
     .fit-box {
-        background: linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%); color: #065F46;
-        padding: 6px 12px; border-radius: 8px; font-size: 12px; margin-top: 4px;
+        background: #ECFDF5; color: #065F46;
+        padding: 8px 12px; border-radius: 8px; font-size: 12.5px; margin-top: 5px;
         font-weight: 600; border-left: 4px solid #10B981;
-        box-shadow: 0 2px 8px rgba(16,185,129,0.15);
     }
     .fit-box-err {
-        background: linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%); color: #991B1B;
-        padding: 6px 12px; border-radius: 8px; font-size: 12px; margin-top: 4px;
+        background: #FEF2F2; color: #991B1B;
+        padding: 8px 12px; border-radius: 8px; font-size: 12.5px; margin-top: 5px;
         font-weight: 600; border-left: 4px solid #EF4444;
-        box-shadow: 0 2px 8px rgba(239,68,68,0.15);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -369,13 +375,6 @@ with st.sidebar:
 # ==========================================
 # 4. 硬件数据模拟 —— 6 孔覆盖 4 种诊断状态
 # ==========================================
-# 设计目标：
-#   W-01: Lac低 / Pyr低  → Normal
-#   W-02: Lac高 / Pyr低  → Inflammation
-#   W-03: Lac低 / Pyr高  → High Pyruvate
-#   W-04: Lac高 / Pyr高  → High Cancer Risk
-#   W-05: Lac高 / Pyr低  → Inflammation（重复）
-#   W-06: Lac低 / Pyr高  → High Pyruvate（重复）
 LAC_TARGETS = {1: 2.0, 2: 8.0, 3: 2.0, 4: 8.0, 5: 8.0, 6: 2.0}            # mM
 PYR_TARGETS = {1: 80.0, 2: 80.0, 3: 350.0, 4: 350.0, 5: 80.0, 6: 350.0}   # μM
 
@@ -448,7 +447,7 @@ with tab1:
                     "ratio":  st.column_config.NumberColumn(T["ratio"], format="%.3f", disabled=True),
                 },
                 hide_index=True, use_container_width=True, num_rows="fixed",
-                height=190, key="lac_data_editor"
+                height=215, key="lac_data_editor" # 调高高度显示完整 5 行
             )
             st.session_state['lac_df'] = edited_lac.drop(columns=["ratio"]).copy()
 
@@ -470,7 +469,7 @@ with tab1:
                 fig.update_layout(
                     title=dict(text=T["lac_calib_title"], font=dict(size=11, color='#433262'), x=0.5, xanchor='center'),
                     xaxis_title=T["x_mm"], yaxis_title=T["y_ratio"],
-                    height=170, margin=dict(l=0, r=0, t=28, b=0),
+                    height=180, margin=dict(l=0, r=0, t=28, b=0),
                     showlegend=False, font=dict(size=9, color='#6B7280'),
                     plot_bgcolor='rgba(249,250,251,0.5)', paper_bgcolor='rgba(0,0,0,0)',
                     xaxis=dict(gridcolor='#E5E7EB', zeroline=False),
@@ -505,7 +504,7 @@ with tab1:
                     "ratio":  st.column_config.NumberColumn(T["ratio"], format="%.3f", disabled=True),
                 },
                 hide_index=True, use_container_width=True, num_rows="fixed",
-                height=190, key="pyr_data_editor"
+                height=215, key="pyr_data_editor" # 调高高度显示完整 5 行
             )
             st.session_state['pyr_df'] = edited_pyr.drop(columns=["ratio"]).copy()
 
@@ -527,7 +526,7 @@ with tab1:
                 fig.update_layout(
                     title=dict(text=T["pyr_calib_title"], font=dict(size=11, color='#433262'), x=0.5, xanchor='center'),
                     xaxis_title=T["x_um"], yaxis_title=T["y_ratio"],
-                    height=170, margin=dict(l=0, r=0, t=28, b=0),
+                    height=180, margin=dict(l=0, r=0, t=28, b=0),
                     showlegend=False, font=dict(size=9, color='#6B7280'),
                     plot_bgcolor='rgba(249,250,251,0.5)', paper_bgcolor='rgba(0,0,0,0)',
                     xaxis=dict(gridcolor='#E5E7EB', zeroline=False),
