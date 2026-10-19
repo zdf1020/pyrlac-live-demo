@@ -4,7 +4,6 @@ import pandas as pd
 import plotly.graph_objects as go
 from scipy.stats import linregress
 import time
-import random
 import re
 import sqlite3
 from datetime import datetime
@@ -245,7 +244,7 @@ def classify(c_lac, c_pyr, th):
 
 
 def fig17_steps(current: int):
-    """Fig. 17 流程步骤指示器（1-5 对应：Sample Input → Probe Mode → Scan → Diagnosis → Sync）"""
+    """Fig. 17 流程步骤指示器"""
     steps = ["1. Sample Input", "2. Probe Mode", "3. Scan & Calculate",
              "4. Joint Diagnosis", "5. HIS/LIS Sync"]
     html = '<div style="display:flex;gap:6px;margin-bottom:20px;">'
@@ -468,14 +467,13 @@ with tab2:
 
     existing = sorted(set(st.session_state['saved_lac'].keys()) & set(st.session_state['saved_pyr'].keys()))
     if existing:
+        preview_ids = ', '.join(existing[:6]) + ('...' if len(existing) > 6 else '')
         st.success(
-            f"✅ **{len(existing)} sample(s)** ready for joint diagnosis: "
-            f"`{', '.join(existing[:6])}{'...' if len(existing) > 6 else ''}`"
+            f"✅ **{len(existing)} sample(s)** ready for joint diagnosis: `{preview_ids}`"
         )
         st.info("→ Proceed to **Diagnosis Summary** tab for joint diagnosis and clinical reports.")
     else:
         st.warning("No complete sample yet. Adjust ADC values above to populate.")
-        return
 
     # 预览当前 Sample ID 的诊断
     st.divider()
@@ -538,7 +536,7 @@ with tab3:
                               'cls': cls,
                               'lac_flag_raw': lac_flag, 'pyr_flag_raw': pyr_flag})
 
-            # Fig. 17 · I: Joint Diagnosis (Warburg Quadrant Logic)
+            # Fig. 17 · I: Joint Diagnosis
             st.markdown("### 🩺 Joint Diagnosis — Patient Summary Cards")
             cols = st.columns(3)
             for idx, j in enumerate(joint):
