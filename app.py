@@ -28,16 +28,12 @@ st.set_page_config(
 st.markdown("""
 <style>
     html, body, [class*="css"] { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    
-    /* 提示框美化 */
     .maintenance-box {
         background: linear-gradient(135deg, #fff3cd 0%, #ffe8a1 100%); 
         color: #856404; border-left: 6px solid #ffc107;
         padding: 16px 20px; border-radius: 8px; margin-bottom: 25px; 
         font-weight: 600; font-size: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
-    
-    /* 诊断结果卡片美化 */
     .diagnosis-card {
         padding: 20px; border-radius: 12px; margin-bottom: 15px;
         background-color: white; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
@@ -50,28 +46,23 @@ st.markdown("""
         display: inline-block; padding: 6px 12px; border-radius: 20px; 
         font-size: 14px; font-weight: 700; color: white; margin-top: 10px;
     }
-    
-    /* 状态颜色 */
     .bg-normal { background-color: #28a745; }
     .bg-inflam { background-color: #ffc107; color: #333; }
     .bg-cancer { background-color: #dc3545; }
     .bg-highpyr { background-color: #6f42c1; }
-
     .border-normal { border-left-color: #28a745; }
     .border-inflam { border-left-color: #ffc107; }
     .border-cancer { border-left-color: #dc3545; }
     .border-highpyr { border-left-color: #6f42c1; }
-
-    /* 按钮统一美化 */
     .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; padding: 8px 0; }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("🧬 PyrLac Glow - Diagnostic Terminal")
-st.markdown("**Workflow:** Calibrate → Hardware Scan → Joint Diagnosis Summary")
+st.markdown("**Ratiometric Fluorescence Mode:** Software calculates Ratio = ADC_485 / ADC_420 before concentration inversion.")
 
 # ==========================================
-# 2. 侧边栏：硬件设置与阈值
+# 2. 侧边栏
 # ==========================================
 with st.sidebar:
     st.image("https://static.igem.wiki/teams/6263/wiki/layout/1-1-1.avif", width=100)
@@ -90,40 +81,44 @@ with st.sidebar:
     st.info("**Lactate:** `5.0 mM`\n\n**Pyruvate:** `200 μM`")
 
 # --- 模拟获取硬件 ADC 数据 ---
-def get_adc_value(probe_type, current_well):
+def get_adc_values(probe_type, current_well):
     port = st.session_state.get('serial_port')
     if port:
         try:
             ser = serial.Serial(port, 9600, timeout=1)
-            time.sleep(0.1)
+            time.sleep(0.05)
             ser.reset_input_buffer()
             line = ser.readline().decode('utf-8').strip()
             ser.close()
-            match = re.search(r"[-+]?\d*\.\d+|\d+", line)
-            if match: return float(match.group())
+            # 假设硬件传来的格式是 "420:120, 485:350"
+            match = re.search(r"420:(\d+),\s*485:(\d+)", line)
+            if match:
+                return float(match.group(1)), float(match.group(2))
         except Exception:
             pass 
     
     # 模拟数据：W-05 双高(癌症)，W-06 乳酸高(炎症)，W-07 正常
     time.sleep(0.2)
+    adc_420 = random.uniform(90, 110) # 参考通道较稳定
+    
     if probe_type == "Lactate":
-        if current_well == 5: return random.uniform(750, 900) 
-        elif current_well == 6: return random.uniform(600, 700)
-        elif current_well == 7: return random.uniform(80, 150)
-        else: return random.uniform(50, 200)
+        if current_well == 5: adc_485 = random.uniform(550, 650) # Ratio 高
+        elif current_well == 6: adc_485 = random.uniform(450, 550)
+        else: adc_485 = random.uniform(120, 200)
     else:
-        if current_well == 5: return random.uniform(380, 480) 
-        elif current_well == 6: return random.uniform(40, 80) 
-        elif current_well == 7: return random.uniform(50, 100)
-        else: return random.uniform(30, 90)
+        if current_well == 5: adc_485 = random.uniform(400, 500) 
+        elif current_well == 6: adc_485 = random.uniform(150, 200) 
+        else: adc_485 = random.uniform(120, 160)
+        
+    return adc_420, adc_485
 
 # ==========================================
 # 3. 核心功能区
 # ==========================================
-tab1, tab2, tab3 = st.tabs(["📈 1. Calibration", "🔬 2. Hardware Scan", "📋 3. Diagnosis Summary"])
+tab1, tab2, tab3 = st.tabs(["📈 1. Calibration (Ratio)", "🔬 2. Hardware Scan", "📋 3. Diagnosis Summary"])
 
 # ------------------------------------------
-# Tab 1: 校准
+# Tab 1: 校准 (基于比率)
 # ------------------------------------------
 with tab1:
     st.markdown("""
@@ -137,54 +132,67 @@ with tab1:
     with col1:
         st.subheader("Lactate Probe")
         lac_x = st.text_input("Lactate Standards (mM)", value="0.0, 1.0, 2.0, 5.0, 10.0")
-        lac_y = st.text_input("Lactate ADC Signals", value="50.1, 128.4, 255.3, 605.7, 1210.2")
+        lac_y420 = st.text_input("Lactate ADC_420 (Ref)", value="100, 102, 98, 105, 101")
+        lac_y485 = st.text_input("Lactate ADC_485 (Signal)", value="120, 210, 320, 620, 1150")
+        
         if st.button("Run Lactate Calibration", type="primary"):
             xd = [float(i) for i in lac_x.split(',')]
-            yd = [float(i) for i in lac_y.split(',')]
-            res = linregress(xd, yd)
+            y420 = [float(i) for i in lac_y420.split(',')]
+            y485 = [float(i) for i in lac_y485.split(',')]
+            
+            # 计算荧光比率
+            ratios = [y485[i] / y420[i] for i in range(len(xd))]
+            
+            res = linregress(xd, ratios)
             st.session_state['lac_slope'] = res.slope
             st.session_state['lac_int'] = res.intercept
             
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=xd, y=yd, mode='markers', name='Standards', marker=dict(color='#0068c9', size=12, line=dict(width=2, color='white'))))
+            fig.add_trace(go.Scatter(x=xd, y=ratios, mode='markers', name='Standards', marker=dict(color='#0068c9', size=12)))
             fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * np.array(xd), mode='lines', name='Fit', line=dict(color='#333', width=3, dash='dash')))
-            fig.update_layout(title="Lactate Standard Curve", template="plotly_white", height=300, margin=dict(l=0, r=0, t=40, b=0))
+            fig.update_layout(title="Lactate Standard Curve (Ratio vs Conc)", xaxis_title="Conc (mM)", yaxis_title="Ratio (485/420)", height=300, margin=dict(l=0, r=0, t=40, b=0))
             st.plotly_chart(fig, use_container_width=True)
-            st.success(f"Fitted: y = {res.slope:.2f}x + {res.intercept:.2f} | R² = {res.rvalue**2:.4f}")
+            st.success(f"Fitted: Ratio = {res.slope:.3f}*Conc + {res.intercept:.3f} | R² = {res.rvalue**2:.4f}")
 
     with col2:
         st.subheader("Pyruvate Probe")
         pyr_x = st.text_input("Pyruvate Standards (μM)", value="0, 100, 200, 500, 1000")
-        pyr_y = st.text_input("Pyruvate ADC Signals", value="45.2, 152.8, 310.5, 782.1, 1550.8")
+        pyr_y420 = st.text_input("Pyruvate ADC_420 (Ref)", value="100, 98, 102, 100, 99")
+        pyr_y485 = st.text_input("Pyruvate ADC_485 (Signal)", value="120, 180, 250, 550, 1050")
+        
         if st.button("Run Pyruvate Calibration", type="primary"):
             xd = [float(i) for i in pyr_x.split(',')]
-            yd = [float(i) for i in pyr_y.split(',')]
-            res = linregress(xd, yd)
+            y420 = [float(i) for i in pyr_y420.split(',')]
+            y485 = [float(i) for i in pyr_y485.split(',')]
+            
+            ratios = [y485[i] / y420[i] for i in range(len(xd))]
+            
+            res = linregress(xd, ratios)
             st.session_state['pyr_slope'] = res.slope
             st.session_state['pyr_int'] = res.intercept
             
             fig = go.Figure()
-            fig.add_trace(go.Scatter(x=xd, y=yd, mode='markers', name='Standards', marker=dict(color='#ff4b4b', size=12, line=dict(width=2, color='white'))))
+            fig.add_trace(go.Scatter(x=xd, y=ratios, mode='markers', name='Standards', marker=dict(color='#ff4b4b', size=12)))
             fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * np.array(xd), mode='lines', name='Fit', line=dict(color='#333', width=3, dash='dash')))
-            fig.update_layout(title="Pyruvate Standard Curve", template="plotly_white", height=300, margin=dict(l=0, r=0, t=40, b=0))
+            fig.update_layout(title="Pyruvate Standard Curve (Ratio vs Conc)", xaxis_title="Conc (μM)", yaxis_title="Ratio (485/420)", height=300, margin=dict(l=0, r=0, t=40, b=0))
             st.plotly_chart(fig, use_container_width=True)
-            st.success(f"Fitted: y = {res.slope:.2f}x + {res.intercept:.2f} | R² = {res.rvalue**2:.4f}")
+            st.success(f"Fitted: Ratio = {res.slope:.3f}*Conc + {res.intercept:.3f} | R² = {res.rvalue**2:.4f}")
 
 # ------------------------------------------
 # Tab 2: 硬件扫描
 # ------------------------------------------
 with tab2:
-    lac_slope = st.session_state.get('lac_slope', 115.0)
-    lac_int = st.session_state.get('lac_int', 50.0)
-    pyr_slope = st.session_state.get('pyr_slope', 1.5)
-    pyr_int = st.session_state.get('pyr_int', 40.0)
+    lac_slope = st.session_state.get('lac_slope', 0.1)
+    lac_int = st.session_state.get('lac_int', 1.0)
+    pyr_slope = st.session_state.get('pyr_slope', 0.001)
+    pyr_int = st.session_state.get('pyr_int', 1.0)
     
     col_setup, col_results = st.columns([1, 2], gap="large")
     
     with col_setup:
         st.markdown("### ⚙️ Scan Setup")
         probe_type = st.radio("Probe Mode", ["Lactate", "Pyruvate"])
-        num_wells = st.slider("Number of Wells", 1, 16, 8)
+        num_wells = st.slider("Number of Wells", 1, 16, 6)
         
         if st.button("▶ Start Detection", type="primary"):
             st.session_state['scan_data'] = []
@@ -193,14 +201,21 @@ with tab2:
             
             for i in range(1, num_wells + 1):
                 status_text.text(f"Reading Well: W-{i:02d}...")
-                adc = get_adc_value(probe_type, i)
+                adc_420, adc_485 = get_adc_values(probe_type, i)
+                ratio = adc_485 / adc_420
                 
-                conc = max(0, (adc - lac_int) / lac_slope) if probe_type == "Lactate" else max(0, (adc - pyr_int) / pyr_slope)
+                # 反推浓度
+                if probe_type == "Lactate":
+                    conc = max(0, (ratio - lac_int) / lac_slope)
+                else:
+                    conc = max(0, (ratio - pyr_int) / pyr_slope)
                     
                 st.session_state['scan_data'].append({
                     "Sample ID": f"W-{i:02d}",
-                    "ADC": round(adc, 1),
-                    "Concentration": round(conc, 2)
+                    "ADC_420": round(adc_420, 1),
+                    "ADC_485": round(adc_485, 1),
+                    "Ratio": round(ratio, 3),
+                    "Conc.": round(conc, 2)
                 })
                 progress_bar.progress(i / num_wells)
             
@@ -214,9 +229,9 @@ with tab2:
             st.markdown(f"### 📋 {probe_type} Results ({unit})")
             st.dataframe(df, use_container_width=True, hide_index=True)
             
-            fig = px.bar(df, x="Sample ID", y="Concentration", 
+            fig = px.bar(df, x="Sample ID", y="Conc.", 
                          title=f"{probe_type} Concentration Profile",
-                         color="Concentration", color_continuous_scale="Blues" if probe_type=="Lactate" else "Reds")
+                         color="Conc.", color_continuous_scale="Blues" if probe_type=="Lactate" else "Reds")
             fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=40, b=0))
             st.plotly_chart(fig, use_container_width=True)
             
@@ -226,9 +241,9 @@ with tab2:
                 
                 for row in st.session_state['scan_data']:
                     if probe_type == "Lactate":
-                        st.session_state['saved_lac'][row['Sample ID']] = row['Concentration']
+                        st.session_state['saved_lac'][row['Sample ID']] = row['Conc.']
                     else:
-                        st.session_state['saved_pyr'][row['Sample ID']] = row['Concentration']
+                        st.session_state['saved_pyr'][row['Sample ID']] = row['Conc.']
                 st.success("Data saved! Go to Diagnosis Summary.")
 
 # ------------------------------------------
@@ -289,8 +304,6 @@ with tab3:
 
             st.divider()
             st.markdown("### 📄 Export & Reports")
-            
-            # --- 1. 批量导出数据表 (CSV) ---
             csv = df_joint.drop(columns=['BgClass', 'BrClass']).to_csv(index=False).encode('utf-8')
             st.download_button(
                 label="📥 Download All Results (CSV)",
@@ -300,14 +313,8 @@ with tab3:
                 type="primary"
             )
             
-            # --- 2. 生成单个独立报告单 ---
-            st.markdown("#### Individual Patient Reports")
-            st.write("Click on any sample below to preview its independent clinical report and download it.")
-            
             for idx, row in df_joint.iterrows():
                 with st.expander(f"📄 Report for {row['Sample ID']} - {row['Status']}"):
-                    
-                    # 动态生成 HTML 报告单
                     rec_text = 'Immediate clinical consultation strongly advised.' if row['Status']=='High Cancer Risk' else ('Slight elevation detected. Follow-up physical examination recommended.' if row['Status']=='Inflammation' else 'No significant metabolic risk detected. Continue routine checkups.')
                     risk_color = '#B91C1C' if row['Status']=='High Cancer Risk' else ('#D97706' if row['Status']=='Inflammation' else '#2C6E4A')
 
@@ -316,7 +323,7 @@ with tab3:
                         <h2 style="text-align: center; border-bottom: 2px solid #333; padding-bottom: 10px; margin-top: 0;">PyrLac Glow Diagnostic Report</h2>
                         <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
                             <div><b>Sample ID:</b> {row['Sample ID']}</div>
-                            <div><b>Test Date:</b> {time.strftime('%Y-%m-%d')}</div>
+                            <div><b>Date:</b> {time.strftime('%Y-%m-%d')}</div>
                         </div>
                         <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                             <tr style="background-color: #f2f2f2;">
@@ -325,12 +332,12 @@ with tab3:
                                 <th style="border: 1px solid #ddd; padding: 10px; text-align: center;">Reference Threshold</th>
                             </tr>
                             <tr>
-                                <td style="border: 1px solid #ddd; padding: 10px;">Lactate (Lactate Probe)</td>
+                                <td style="border: 1px solid #ddd; padding: 10px;">Lactate</td>
                                 <td style="border: 1px solid #ddd; padding: 10px; text-align: center; font-weight: bold; color: {risk_color};">{row['Lactate (mM)']:.2f} mM</td>
                                 <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">&lt; 5.0 mM</td>
                             </tr>
                             <tr>
-                                <td style="border: 1px solid #ddd; padding: 10px;">Pyruvate (Pyruvate Probe)</td>
+                                <td style="border: 1px solid #ddd; padding: 10px;">Pyruvate</td>
                                 <td style="border: 1px solid #ddd; padding: 10px; text-align: center; font-weight: bold; color: {risk_color};">{row['Pyruvate (μM)']:.1f} μM</td>
                                 <td style="border: 1px solid #ddd; padding: 10px; text-align: center;">&lt; 200 μM</td>
                             </tr>
@@ -340,11 +347,7 @@ with tab3:
                         <p style="margin-top: 40px; font-size: 12px; color: #777; text-align: center;">Generated by PyrLac Glow Automated Diagnostic System.<br>For research and pre-screening use only. Not a definitive diagnosis.</p>
                     </div>
                     """
-                    
-                    # 在网页中预览报告单
                     st.markdown(report_html, unsafe_allow_html=True)
-                    
-                    # 下载按钮
                     st.download_button(
                         label=f"📥 Download Report for {row['Sample ID']} (HTML)",
                         data=report_html.encode('utf-8'),
