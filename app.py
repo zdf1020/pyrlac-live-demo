@@ -129,7 +129,7 @@ with st.sidebar:
         "Select Input Port",
         ["🔌 Hardware Port", "🎭 Demo Port (Simulated)"],
         index=1 if not SERIAL_AVAILABLE else 0,
-        help="Hardware: real Arduino. Demo: editable sample for demonstration."
+        help="Hardware: real Arduino. Demo: built-in sample data."
     )
     st.divider()
 
@@ -150,7 +150,12 @@ with st.sidebar:
     else:
         st.session_state['serial_port'] = None
         st.session_state['data_source'] = 'demo'
-        st.info("🎭 Demo mode — editable single sample.\n\nAdjust values in Tab 2.")
+        st.info("🎭 Demo mode. No real hardware required.")
+        demo_sample = st.selectbox(
+            "Demo Sample Set",
+            ["Sample Set A (Mixed)", "Sample Set B (Normal)", "Sample Set C (Abnormal)"]
+        )
+        st.session_state['demo_sample_set'] = demo_sample
 
     st.divider()
     st.markdown("### 🩺 Clinical Thresholds")
@@ -183,7 +188,7 @@ with st.sidebar:
     st.caption("⚕️ Research / pre-screening use only. Results require clinical correlation.")
 
 # ==========================================
-# 4. 读取函数（硬件）
+# 4. 读取函数
 # ==========================================
 def read_hardware_once(port):
     try:
@@ -200,24 +205,43 @@ def read_hardware_once(port):
     return None
 
 
+def get_demo_adc(probe_type, well_idx, sample_set):
+    if sample_set == "Sample Set A (Mixed)":
+        base485 = [150, 620, 175][well_idx - 1] if probe_type == "Lactate" \
+                  else [140, 155, 460][well_idx - 1]
+    elif sample_set == "Sample Set B (Normal)":
+        base485 = [145, 160, 152][well_idx - 1]
+    else:  # Sample Set C (Abnormal)
+        base485 = [600, 640, 580][well_idx - 1] if probe_type == "Lactate" \
+                  else [420, 470, 450][well_idx - 1]
+    return (100.0 + random.uniform(-2, 2), base485 + random.uniform(-3, 3))
+
+
 def read_well_stable(probe_type, well_idx, n=5):
     """
-    硬件模式多次读数取中位数 + CV 检查 + 超量程检查。
+    多次读数取中位数 + CV 检查 + 超量程检查。
     返回 (a420, a485, flag)，flag ∈ {OK, READ_FAIL, NO_PORT, UNSTABLE, OVERRANGE}
     """
-    port = st.session_state.get('serial_port')
-    if not port:
-        return None, None, 'NO_PORT'
+    source = st.session_state.get('data_source', 'demo')
     reads = []
-    for _ in range(n * 2):
-        r = read_hardware_once(port)
-        if r:
-            reads.append(r)
-        if len(reads) >= n:
-            break
-        time.sleep(0.05)
-    if not reads:
-        return None, None, 'READ_FAIL'
+    if source == 'hardware':
+        port = st.session_state.get('serial_port')
+        if not port:
+            return None, None, 'NO_PORT'
+        for _ in range(n * 2):
+            r = read_hardware_once(port)
+            if r:
+                reads.append(r)
+            if len(reads) >= n:
+                break
+            time.sleep(0.05)
+        if not reads:
+            return None, None, 'READ_FAIL'
+    else:
+        for _ in range(n):
+            reads.append(get_demo_adc(probe_type, well_idx,
+                                      st.session_state.get('demo_sample_set')))
+            time.sleep(0.01)
 
     a420 = float(np.median([x[0] for x in reads]))
     a485 = float(np.median([x[1] for x in reads]))
@@ -417,7 +441,7 @@ with tab1:
                 else:
                     st.success(msg)
 
-# ---------- Tab 2: Demo 可编辑样本 / 硬件扫描 ----------
+# ---------- Tab 2: 硬件扫描（3 个示例，无柱形图）----------
 with tab2:
     lac_slope = st.session_state.get('lac_slope', 0.1)
     lac_int = st.session_state.get('lac_int', 1.0)
@@ -425,129 +449,73 @@ with tab2:
     pyr_int = st.session_state.get('pyr_int', 1.0)
 
     source = st.session_state.get('data_source', 'demo')
-
-    # ============================================================
-    # Demo 模式：单个样本，可手动编辑 ADC，实时联动 Tab 3
-    # ============================================================
-    if source == 'demo':
-        st.success("🎭 Demo Mode — Editable Single Sample")
-        st.caption("Adjust ADC values below. The Diagnosis Summary (Tab 3) updates automatically.")
-
-        sid = st.text_input("Sample ID", value="DEMO-01", key="demo_sid")
-
-        col_l, col_p = st.columns(2)
-
-        with col_l:
-            st.markdown("#### 🧪 Lactate Probe")
-            lac_a420 = st.number_input(
-                "Lactate ADC_420 (Ref)", value=100.0, step=1.0, min_value=1.0,
-                key="demo_lac_420")
-            lac_a485 = st.number_input(
-                "Lactate ADC_485 (Signal)", value=140.0, step=1.0, min_value=0.0,
-                key="demo_lac_485")
-            lac_ratio = lac_a485 / lac_a420
-            lac_conc = max(0.0, (lac_ratio - lac_int) / lac_slope) if lac_slope else 0.0
-
-            # 提示性文字（阈值高亮）
-            lac_hi = st.session_state['thresholds']['lac_hi']
-            status_txt = "🔴 Above threshold" if lac_conc > lac_hi else "🟢 Within range"
-            st.metric("Lactate Concentration", f"{lac_conc:.2f} mM")
-            st.caption(f"Ratio (485/420) = {lac_ratio:.3f} · {status_txt}")
-
-        with col_p:
-            st.markdown("#### 🧪 Pyruvate Probe")
-            pyr_a420 = st.number_input(
-                "Pyruvate ADC_420 (Ref)", value=100.0, step=1.0, min_value=1.0,
-                key="demo_pyr_420")
-            pyr_a485 = st.number_input(
-                "Pyruvate ADC_485 (Signal)", value=110.0, step=1.0, min_value=0.0,
-                key="demo_pyr_485")
-            pyr_ratio = pyr_a485 / pyr_a420
-            pyr_conc = max(0.0, (pyr_ratio - pyr_int) / pyr_slope) if pyr_slope else 0.0
-
-            pyr_hi = st.session_state['thresholds']['pyr_hi']
-            status_txt = "🔴 Above threshold" if pyr_conc > pyr_hi else "🟢 Within range"
-            st.metric("Pyruvate Concentration", f"{pyr_conc:.1f} μM")
-            st.caption(f"Ratio (485/420) = {pyr_ratio:.3f} · {status_txt}")
-
-        # ★ 自动保存：每次输入变化都写入 session_state，Tab 3 立即联动
-        st.session_state['saved_lac'] = {
-            sid: {'conc': round(lac_conc, 2), 'flag': 'OK'}
-        }
-        st.session_state['saved_pyr'] = {
-            sid: {'conc': round(pyr_conc, 2), 'flag': 'OK'}
-        }
-
-        st.info("💡 Values are saved automatically. Switch to Tab 3 to view the updated diagnosis.")
-
-    # ============================================================
-    # 硬件模式：保留原有扫描逻辑（3 wells）
-    # ============================================================
-    else:
+    if source == 'hardware':
         st.success(f"🔌 Hardware Mode | Port: {st.session_state.get('serial_port', 'N/A')}")
+    else:
+        st.info(f"🎭 Demo Mode | Set: {st.session_state.get('demo_sample_set', 'N/A')}")
 
-        col_setup, col_results = st.columns([1, 2], gap="large")
+    col_setup, col_results = st.columns([1, 2], gap="large")
 
-        with col_setup:
-            st.markdown("### ⚙️ Scan Setup")
-            probe_type = st.radio("Probe Mode", ["Lactate", "Pyruvate"])
-            st.caption("📌 3 wells per probe. 5 reads per well (median + CV check).")
+    with col_setup:
+        st.markdown("### ⚙️ Scan Setup")
+        probe_type = st.radio("Probe Mode", ["Lactate", "Pyruvate"])
+        st.caption("📌 3 wells per probe. 5 reads per well (median + CV check).")
 
-            if st.button("▶ Start Detection", type="primary"):
-                st.session_state['scan_data'] = []
-                progress = st.progress(0)
-                status = st.empty()
-                for i in range(1, 4):
-                    status.text(f"Reading W-{i:02d} (5 reads)...")
-                    a420, a485, flag = read_well_stable(probe_type, i, n=5)
-                    if flag in ('READ_FAIL', 'NO_PORT'):
-                        row = {"Sample ID": f"W-{i:02d}", "ADC_420": None, "ADC_485": None,
-                               "Ratio": None, "Conc.": None, "Flag": flag}
+        if st.button("▶ Start Detection", type="primary"):
+            st.session_state['scan_data'] = []
+            progress = st.progress(0)
+            status = st.empty()
+            for i in range(1, 4):
+                status.text(f"Reading W-{i:02d} (5 reads)...")
+                a420, a485, flag = read_well_stable(probe_type, i, n=5)
+                if flag in ('READ_FAIL', 'NO_PORT'):
+                    row = {"Sample ID": f"W-{i:02d}", "ADC_420": None, "ADC_485": None,
+                           "Ratio": None, "Conc.": None, "Flag": flag}
+                else:
+                    ratio = a485 / a420
+                    if probe_type == "Lactate":
+                        conc = max(0, (ratio - lac_int) / lac_slope) if lac_slope else 0
                     else:
-                        ratio = a485 / a420
-                        if probe_type == "Lactate":
-                            conc = max(0, (ratio - lac_int) / lac_slope) if lac_slope else 0
-                        else:
-                            conc = max(0, (ratio - pyr_int) / pyr_slope) if pyr_slope else 0
-                        row = {"Sample ID": f"W-{i:02d}",
-                               "ADC_420": round(a420, 1), "ADC_485": round(a485, 1),
-                               "Ratio": round(ratio, 3), "Conc.": round(conc, 2),
-                               "Flag": flag}
-                    st.session_state['scan_data'].append(row)
-                    save_scan(row["Sample ID"], probe_type, a420, a485,
-                              row["Ratio"], row["Conc."], flag, source)
-                    progress.progress(i / 3)
-                status.success("✅ Scan complete")
+                        conc = max(0, (ratio - pyr_int) / pyr_slope) if pyr_slope else 0
+                    row = {"Sample ID": f"W-{i:02d}",
+                           "ADC_420": round(a420, 1), "ADC_485": round(a485, 1),
+                           "Ratio": round(ratio, 3), "Conc.": round(conc, 2),
+                           "Flag": flag}
+                st.session_state['scan_data'].append(row)
+                save_scan(row["Sample ID"], probe_type, a420, a485,
+                          row["Ratio"], row["Conc."], flag, source)
+                progress.progress(i / 3)
+            status.success("✅ Scan complete")
 
-        with col_results:
-            if st.session_state.get('scan_data'):
-                df = pd.DataFrame(st.session_state['scan_data'])
-                unit = "mM" if probe_type == "Lactate" else "μM"
-                st.markdown(f"### 📋 {probe_type} Results ({unit})")
-                st.dataframe(df, use_container_width=True, hide_index=True)
+    with col_results:
+        if st.session_state.get('scan_data'):
+            df = pd.DataFrame(st.session_state['scan_data'])
+            unit = "mM" if probe_type == "Lactate" else "μM"
+            st.markdown(f"### 📋 {probe_type} Results ({unit})")
+            st.dataframe(df, use_container_width=True, hide_index=True)
 
-                if st.button("💾 Save for Joint Diagnosis", type="primary"):
-                    if 'saved_lac' not in st.session_state: st.session_state['saved_lac'] = {}
-                    if 'saved_pyr' not in st.session_state: st.session_state['saved_pyr'] = {}
-                    target = st.session_state['saved_lac'] \
-                        if probe_type == "Lactate" else st.session_state['saved_pyr']
-                    bad = 0
-                    for row in st.session_state['scan_data']:
-                        target[row["Sample ID"]] = {'conc': row["Conc."], 'flag': row["Flag"]}
-                        if row["Flag"] != 'OK':
-                            bad += 1
-                    if bad:
-                        st.warning(
-                            f"Saved with {bad} flagged well(s). These will be marked "
-                            f"'Invalid' in the diagnosis view.")
-                    else:
-                        st.success("Data saved! Go to Diagnosis Summary.")
+            if st.button("💾 Save for Joint Diagnosis", type="primary"):
+                if 'saved_lac' not in st.session_state: st.session_state['saved_lac'] = {}
+                if 'saved_pyr' not in st.session_state: st.session_state['saved_pyr'] = {}
+                target = st.session_state['saved_lac'] \
+                    if probe_type == "Lactate" else st.session_state['saved_pyr']
+                bad = 0
+                for row in st.session_state['scan_data']:
+                    target[row["Sample ID"]] = {'conc': row["Conc."], 'flag': row["Flag"]}
+                    if row["Flag"] != 'OK':
+                        bad += 1
+                if bad:
+                    st.warning(
+                        f"Saved with {bad} flagged well(s). These will be marked "
+                        f"'Invalid' in the diagnosis view.")
+                else:
+                    st.success("Data saved! Go to Diagnosis Summary.")
 
 # ---------- Tab 3: 诊断摘要 ----------
 with tab3:
     st.header("Diagnosis Report")
 
-    # 临床诊断提示横幅
+    # ★ 临床诊断提示横幅
     st.markdown("""
     <div style="background:#e7f1ff;border-left:6px solid #0068c9;padding:14px 18px;
                 border-radius:8px;margin-bottom:20px;font-size:14px;color:#084298;line-height:1.6;">
