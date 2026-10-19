@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# 1. 国际化文本（不变）
+# 1. 国际化文本
 # ==========================================
 LANG = {
     "en": {
@@ -166,30 +166,25 @@ LANG = {
 }
 
 # ==========================================
-# 2. 全局 CSS（解决显示问题 + 美化）
+# 2. 全局 CSS（修复标题与 Tab 样式）
 # ==========================================
 st.markdown("""
 <style>
     :root {
         --primary: #6A3AB2;
         --primary-dark: #433262;
-        --primary-light: #8B5CF6;
-        --accent: #00B8D4;
         --border-soft: #E5E7EB;
-        --text-dark: #1F2937;
         --text-muted: #6B7280;
-        --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
-        --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+        --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
     }
     html, body, [class*="css"] {
         font-family: 'Inter', 'Segoe UI', Roboto, -apple-system, sans-serif;
-        color: var(--text-dark);
     }
     .stApp { background: linear-gradient(135deg, #F9FAFB 0%, #EEF2FF 100%); }
 
-    /* 1. 解决顶部被遮挡的问题 */
+    /* 调整顶部间距，避免被 Streamlit 工具栏遮挡 */
     .block-container { 
-        padding-top: 2.5rem !important; /* 调大顶部留白 */
+        padding-top: 3rem !important; 
         padding-bottom: 1rem !important; 
         max-width: 100% !important; 
     }
@@ -197,21 +192,17 @@ st.markdown("""
     div[data-testid="stVerticalBlock"] { gap: 0.35rem !important; }
     div[data-testid="stHorizontalBlock"] { gap: 0.7rem !important; }
 
-    /* 2. 解决 H1 渐变导致不显示的问题，改用纯深紫色 */
-    h1 {
-        color: var(--primary-dark) !important;
-        -webkit-text-fill-color: var(--primary-dark) !important;
-        font-weight: 800 !important; 
-        letter-spacing: -0.5px;
-        font-size: 22px !important; 
-        margin: 0 0 10px 0 !important; 
+    /* 自定义主标题（不用 h1 标签，避免样式冲突） */
+    .main-title {
+        color: #433262 !important;
+        font-weight: 800 !important;
+        font-size: 24px !important;
+        margin: 0 0 12px 0 !important;
         padding: 0 !important;
+        letter-spacing: -0.5px;
     }
-    h2 { font-size: 16px !important; margin: 2px 0 4px 0 !important; color: var(--primary-dark) !important; font-weight: 700 !important; }
-    h3 { font-size: 14px !important; margin: 2px 0 !important; color: var(--primary-dark) !important; font-weight: 700 !important; }
-    p, label, .stCaption { font-size: 12.5px !important; }
 
-    /* 3. 公式横幅 */
+    /* 公式横幅 */
     .formula-banner {
         background: linear-gradient(135deg, #433262 0%, #6A3AB2 60%, #8B5CF6 100%);
         color: #fff !important;
@@ -224,9 +215,6 @@ st.markdown("""
         margin-bottom: 15px;
         box-shadow: 0 4px 15px rgba(106,58,178,0.3);
         border: 1px solid rgba(255,255,255,0.18);
-        white-space: normal !important;
-        word-wrap: break-word;
-        line-height: 1.45;
         display: block;
         width: 100%;
         box-sizing: border-box;
@@ -239,9 +227,7 @@ st.markdown("""
         border: 1px solid var(--border-soft) !important;
         box-shadow: var(--shadow-sm) !important;
         padding: 15px 20px !important; 
-        transition: box-shadow 0.25s ease;
     }
-    div[data-testid="stVerticalBlockBorderWrapper"]:hover { box-shadow: var(--shadow-md) !important; }
 
     /* 按钮 */
     .stButton > button, .stDownloadButton > button {
@@ -253,7 +239,6 @@ st.markdown("""
         padding: 8px 14px !important; 
         font-size: 13px !important;
         box-shadow: 0 3px 10px rgba(106,58,178,0.3) !important;
-        transition: all 0.2s ease !important; 
         width: 100% !important;
     }
     .stButton > button:hover, .stDownloadButton > button:hover {
@@ -261,7 +246,7 @@ st.markdown("""
         box-shadow: 0 6px 15px rgba(106,58,178,0.4) !important;
     }
 
-    /* 4. 修复 Tab 选中样式 */
+    /* 修复 Tab 选中样式（强制覆盖文字颜色） */
     .stTabs [data-baseweb="tab-list"] {
         background: transparent !important; 
         border-bottom: 2px solid var(--border-soft) !important;
@@ -282,19 +267,27 @@ st.markdown("""
         background-color: #F3F0FF !important;
         color: var(--primary) !important;
     }
-    .stTabs button[aria-selected="true"] {
+    
+    /* 针对选中的 Tab 及内部文本颜色 */
+    .stTabs [data-baseweb="tab"][aria-selected="true"] {
         background: linear-gradient(135deg, #6A3AB2 0%, #8B5CF6 100%) !important;
-        color: #FFFFFF !important;
         border-radius: 8px 8px 0 0 !important;
         box-shadow: 0 -2px 10px rgba(106,58,178,0.1) !important;
         border-bottom: 2px solid #8B5CF6 !important;
     }
+    .stTabs [data-baseweb="tab"][aria-selected="true"] p,
+    .stTabs [data-baseweb="tab"][aria-selected="true"] div,
+    .stTabs [data-baseweb="tab"][aria-selected="true"] span {
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+    }
+
     .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] {
-        display: none !important; /* 隐藏默认高亮条 */
+        display: none !important;
     }
     .stTabs [data-baseweb="tab-panel"] { padding-top: 10px; }
 
-    /* 其他 UI 元素 */
+    /* 数据表格与其他组件 */
     div[data-testid="stDataFrame"], div[data-testid="stDataEditor"] {
         border-radius: 8px !important; overflow: hidden !important;
         border: 1px solid var(--border-soft) !important;
@@ -333,7 +326,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 3. 语言选择
+# 3. 侧边栏与标题渲染
 # ==========================================
 if 'lang' not in st.session_state:
     st.session_state['lang'] = 'en'
@@ -351,7 +344,8 @@ with st.sidebar:
 
 T = LANG[st.session_state['lang']]
 
-st.title(T["title"])
+# 使用自定义 class 渲染标题，避免 st.title 造成的不可见
+st.markdown(f'<div class="main-title">{T["title"]}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="formula-banner">{T["formula"]}</div>', unsafe_allow_html=True)
 
 with st.sidebar:
@@ -373,10 +367,10 @@ with st.sidebar:
     st.info(T["threshold_text"])
 
 # ==========================================
-# 4. 硬件数据模拟 —— 6 孔覆盖 4 种诊断状态
+# 4. 硬件数据模拟
 # ==========================================
-LAC_TARGETS = {1: 2.0, 2: 8.0, 3: 2.0, 4: 8.0, 5: 8.0, 6: 2.0}            # mM
-PYR_TARGETS = {1: 80.0, 2: 80.0, 3: 350.0, 4: 350.0, 5: 80.0, 6: 350.0}   # μM
+LAC_TARGETS = {1: 2.0, 2: 8.0, 3: 2.0, 4: 8.0, 5: 8.0, 6: 2.0}
+PYR_TARGETS = {1: 80.0, 2: 80.0, 3: 350.0, 4: 350.0, 5: 80.0, 6: 350.0}
 
 def get_adc_values(probe_type, current_well):
     port = st.session_state.get('serial_port')
@@ -447,7 +441,7 @@ with tab1:
                     "ratio":  st.column_config.NumberColumn(T["ratio"], format="%.3f", disabled=True),
                 },
                 hide_index=True, use_container_width=True, num_rows="fixed",
-                height=215, key="lac_data_editor" # 调高高度显示完整 5 行
+                height=215, key="lac_data_editor"
             )
             st.session_state['lac_df'] = edited_lac.drop(columns=["ratio"]).copy()
 
@@ -504,7 +498,7 @@ with tab1:
                     "ratio":  st.column_config.NumberColumn(T["ratio"], format="%.3f", disabled=True),
                 },
                 hide_index=True, use_container_width=True, num_rows="fixed",
-                height=215, key="pyr_data_editor" # 调高高度显示完整 5 行
+                height=215, key="pyr_data_editor"
             )
             st.session_state['pyr_df'] = edited_pyr.drop(columns=["ratio"]).copy()
 
