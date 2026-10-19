@@ -87,8 +87,11 @@ with tab_demo:
     st.write("Use this button to instantly populate mock data for a quick demonstration without typing.")
     
     if st.button("⚡ Auto-fill Demo Data & Run", type="primary"):
-        st.session_state['slope'] = linregress(default_x, default_y).slope
-        st.session_state['intercept'] = linregress(default_x, default_y).intercept
+        # 修复：这里算好 R2 并存入 session_state
+        res = linregress(default_x, default_y)
+        st.session_state['slope'] = res.slope
+        st.session_state['intercept'] = res.intercept
+        st.session_state['r2'] = res.rvalue ** 2  # <--- 修复了这里
         st.session_state['calibrated'] = True
         st.session_state['demo_mode'] = True
         st.session_state['target'] = target
@@ -133,6 +136,7 @@ with tab_cal:
 
     with col2:
         st.write("**Calibration Quality Control**")
+        # 这里安全获取，防止报错
         if st.session_state.get('calibrated', False) and st.session_state.get('target') == target:
             # 画图
             x_data = [float(i.strip()) for i in x_input.split(",")]
@@ -151,7 +155,7 @@ with tab_cal:
             st.plotly_chart(fig, use_container_width=True)
             
             # QC 面板
-            r2 = st.session_state['r2']
+            r2 = st.session_state.get('r2', 0) # 安全获取
             if r2 > 0.98:
                 st.markdown(f"**Equation:** y = `{st.session_state['slope']:.2f}` x + `{st.session_state['intercept']:.2f}` | **R²:** <span class='status-pass'>{r2:.4f} (PASS)</span>", unsafe_allow_html=True)
             else:
