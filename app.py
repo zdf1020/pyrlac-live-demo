@@ -166,7 +166,7 @@ LANG = {
 }
 
 # ==========================================
-# 2. 全局 CSS（美化，不变）
+# 2. 全局 CSS（美化 + 公式横幅修复）
 # ==========================================
 st.markdown("""
 <style>
@@ -204,13 +204,32 @@ st.markdown("""
     h2 { font-size: 16px !important; margin: 2px 0 4px 0 !important; color: var(--primary-dark) !important; font-weight: 700 !important; }
     h3 { font-size: 14px !important; margin: 2px 0 !important; color: var(--primary-dark) !important; font-weight: 700 !important; }
     p, label, .stCaption { font-size: 12.5px !important; }
+
+    /* ========== 公式横幅（修复透明填充 + 换行 + 防裁剪） ========== */
     .formula-banner {
         background: linear-gradient(135deg, #433262 0%, #6A3AB2 60%, #8B5CF6 100%);
-        color: #fff; padding: 9px 16px; border-radius: 10px; text-align: center;
-        font-size: 13.5px; font-weight: 600; margin-bottom: 10px;
-        box-shadow: 0 6px 20px rgba(106,58,178,0.35); letter-spacing: 0.4px;
+        color: #fff !important;
+        -webkit-text-fill-color: #fff !important;
+        -webkit-background-clip: border-box !important;
+        background-clip: border-box !important;
+        padding: 10px 18px;
+        border-radius: 10px;
+        text-align: center;
+        font-size: 13.5px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        box-shadow: 0 6px 20px rgba(106,58,178,0.35);
         border: 1px solid rgba(255,255,255,0.18);
+        white-space: normal !important;
+        word-wrap: break-word;
+        overflow: visible !important;
+        line-height: 1.45;
+        letter-spacing: 0.3px;
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
     }
+
     div[data-testid="stVerticalBlockBorderWrapper"] {
         background: #ffffff !important; border-radius: 12px !important;
         border: 1px solid var(--border-soft) !important;
@@ -357,12 +376,8 @@ with st.sidebar:
 #   W-04: Lac高 / Pyr高  → High Cancer Risk
 #   W-05: Lac高 / Pyr低  → Inflammation（重复）
 #   W-06: Lac低 / Pyr高  → High Pyruvate（重复）
-#
-# 实现思路：以"目标浓度"反推 ADC_485，使得在默认校准下扫描出来
-# 的浓度刚好落在期望状态区间内；同时增加少量噪声模拟真实传感器波动。
-# 由于 target 与阈值 (5.0 mM / 200 μM) 距离较远，噪声不会引起状态跳变。
-LAC_TARGETS = {1: 2.0, 2: 8.0, 3: 2.0, 4: 8.0, 5: 8.0, 6: 2.0}     # mM
-PYR_TARGETS = {1: 80.0, 2: 80.0, 3: 350.0, 4: 350.0, 5: 80.0, 6: 350.0}  # μM
+LAC_TARGETS = {1: 2.0, 2: 8.0, 3: 2.0, 4: 8.0, 5: 8.0, 6: 2.0}            # mM
+PYR_TARGETS = {1: 80.0, 2: 80.0, 3: 350.0, 4: 350.0, 5: 80.0, 6: 350.0}   # μM
 
 def get_adc_values(probe_type, current_well):
     port = st.session_state.get('serial_port')
@@ -391,14 +406,11 @@ def get_adc_values(probe_type, current_well):
         intc = st.session_state.get('pyr_int', 0.8646)
         targets = PYR_TARGETS
 
-    # 超过 6 个孔时循环使用 1-6 的模式
     well_idx = ((current_well - 1) % 6) + 1
     target_conc = targets[well_idx]
 
-    # 反推 ADC_485：ratio = slope * conc + intercept
     target_ratio = slope * target_conc + intc
     adc_485 = target_ratio * adc_420
-    # 加一点噪声模拟真实读数波动
     adc_485 += random.uniform(-4, 4)
     adc_485 = max(adc_485, 10.0)
 
