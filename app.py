@@ -24,11 +24,10 @@ st.set_page_config(
 )
 
 # ==========================================
-# 1. 国际化文本（默认英文，可切中文）
+# 1. 国际化文本
 # ==========================================
 LANG = {
     "en": {
-        "lang_label": "🌐 Language",
         "title": "🧬 PyrLac Glow - Diagnostic Terminal",
         "formula": "Ratiometric Signal (Ratio) = ADC (485 nm) / ADC (420 nm)",
         "hardware": "🔌 Hardware Status",
@@ -44,14 +43,14 @@ LANG = {
         "tab3": "📋 3. Diagnosis Summary",
         "lactate_probe": "Lactate Probe",
         "pyruvate_probe": "Pyruvate Probe",
-        "data_processing": "**Data Processing (Ratio Calculation)**",
+        "data_processing": "Data Processing (Ratio Calculation)",
         "conc_mm": "Conc. (mM)",
         "conc_um": "Conc. (μM)",
         "adc420": "ADC_420",
         "adc485": "ADC_485",
         "ratio": "Ratio (485/420)",
-        "lac_calib_title": "Lactate Calibration",
-        "pyr_calib_title": "Pyruvate Calibration",
+        "lac_calib_title": "Lactate Calibration (Ratio vs Conc)",
+        "pyr_calib_title": "Pyruvate Calibration (Ratio vs Conc)",
         "x_mm": "Conc (mM)",
         "x_um": "Conc (μM)",
         "y_ratio": "Ratio (485/420)",
@@ -68,7 +67,7 @@ LANG = {
         "scan_done": "✅ Scan Completed!",
         "results": "📋 {probe} Results ({unit})",
         "save": "💾 Save for Joint Diagnosis",
-        "saved": "Data saved! Go to Reports.",
+        "saved": "Data saved! Go to Diagnosis Summary.",
         "export_title": "Export & Reports",
         "need_scan": "Please scan and save both Lactate and Pyruvate results first.",
         "no_match": "No matching Sample IDs found.",
@@ -97,7 +96,6 @@ LANG = {
         "pyruvate": "Pyruvate",
     },
     "zh": {
-        "lang_label": "🌐 语言",
         "title": "🧬 PyrLac Glow - 诊断终端",
         "formula": "比率信号 (Ratio) = ADC (485 nm) / ADC (420 nm)",
         "hardware": "🔌 硬件状态",
@@ -113,14 +111,14 @@ LANG = {
         "tab3": "📋 3. 诊断摘要",
         "lactate_probe": "乳酸探针",
         "pyruvate_probe": "丙酮酸探针",
-        "data_processing": "**数据处理（比率计算）**",
+        "data_processing": "数据处理（比率计算）",
         "conc_mm": "浓度 (mM)",
         "conc_um": "浓度 (μM)",
         "adc420": "ADC_420",
         "adc485": "ADC_485",
         "ratio": "比率 (485/420)",
-        "lac_calib_title": "乳酸校准曲线",
-        "pyr_calib_title": "丙酮酸校准曲线",
+        "lac_calib_title": "乳酸校准曲线 (比率 vs 浓度)",
+        "pyr_calib_title": "丙酮酸校准曲线 (比率 vs 浓度)",
         "x_mm": "浓度 (mM)",
         "x_um": "浓度 (μM)",
         "y_ratio": "比率 (485/420)",
@@ -137,7 +135,7 @@ LANG = {
         "scan_done": "✅ 扫描完成！",
         "results": "📋 {probe} 结果 ({unit})",
         "save": "💾 保存用于联合诊断",
-        "saved": "数据已保存！请前往报告区。",
+        "saved": "数据已保存！请前往诊断摘要。",
         "export_title": "导出与报告",
         "need_scan": "请先扫描并保存乳酸和丙酮酸结果。",
         "no_match": "未找到匹配的样本 ID。",
@@ -168,24 +166,43 @@ LANG = {
 }
 
 # ==========================================
-# 2. 全局 CSS（紧凑布局，尽量一屏显示）
+# 2. 全局 CSS（极度压缩，让每屏无需下拉）
 # ==========================================
 st.markdown("""
 <style>
     html, body, [class*="css"] { font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-    .block-container { padding-top: 1.2rem; padding-bottom: 0.5rem; max-width: 100%; }
+    .block-container { padding-top: 0.6rem !important; padding-bottom: 0.2rem !important; max-width: 100%; }
+    .element-container { margin-bottom: 0.15rem !important; }
+    div[data-testid="stVerticalBlock"] { gap: 0.25rem !important; }
+    div[data-testid="stHorizontalBlock"] { gap: 0.6rem !important; }
     .formula-banner {
         background: linear-gradient(90deg, #433262 0%, #6A3AB2 100%);
-        color: white; padding: 10px; border-radius: 8px;
-        text-align: center; font-size: 15px; font-weight: bold;
-        margin-bottom: 12px; box-shadow: 0 4px 15px rgba(106,58,178,0.3);
+        color: white; padding: 7px; border-radius: 7px;
+        text-align: center; font-size: 13px; font-weight: bold;
+        margin-bottom: 6px; box-shadow: 0 3px 10px rgba(106,58,178,0.25);
     }
-    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; padding: 6px 0; }
-    h1 { font-size: 24px !important; margin-bottom: 6px !important; }
-    h2 { font-size: 18px !important; margin: 4px 0 !important; }
-    h3 { font-size: 16px !important; margin: 4px 0 !important; }
-    p, label { font-size: 13px !important; }
-    .element-container { margin-bottom: 0.3rem !important; }
+    .stButton>button { width: 100%; border-radius: 6px; font-weight: bold; padding: 3px 0; font-size: 13px; min-height: 32px; }
+    h1 { font-size: 21px !important; margin: 0 0 3px 0 !important; padding: 0 !important; }
+    h2 { font-size: 16px !important; margin: 2px 0 2px 0 !important; }
+    h3 { font-size: 14px !important; margin: 2px 0 !important; }
+    p, label, .stCaption { font-size: 12.5px !important; }
+    .fit-box {
+        background: #d4edda; color: #155724;
+        padding: 4px 8px; border-radius: 5px;
+        font-size: 12px; margin-top: 3px; font-weight: 600;
+        border-left: 3px solid #28a745;
+    }
+    .fit-box-err {
+        background: #f8d7da; color: #721c24;
+        padding: 4px 8px; border-radius: 5px;
+        font-size: 12px; margin-top: 3px;
+        border-left: 3px solid #dc3545;
+    }
+    .stTabs [data-baseweb="tab-list"] { gap: 2px; }
+    .stTabs [data-baseweb="tab"] { padding: 5px 12px; font-size: 13px; height: 32px; }
+    .stTabs [data-baseweb="tab-panel"] { padding-top: 4px; }
+    div[data-testid="stExpander"] { margin-bottom: 4px !important; }
+    div[data-testid="stExpander"] details summary { padding: 4px 8px !important; font-size: 13px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -196,7 +213,7 @@ if 'lang' not in st.session_state:
     st.session_state['lang'] = 'en'
 
 with st.sidebar:
-    st.image("https://static.igem.wiki/teams/6263/wiki/layout/1-1-1.avif", width=90)
+    st.image("https://static.igem.wiki/teams/6263/wiki/layout/1-1-1.avif", width=85)
     lang_options = {"English": "en", "中文": "zh"}
     reverse = {v: k for k, v in lang_options.items()}
     lang_pick = st.selectbox(
@@ -248,7 +265,7 @@ def get_adc_values(probe_type, current_well):
                 return float(match.group(1)), float(match.group(2))
         except Exception:
             pass
-    time.sleep(0.15)
+    time.sleep(0.12)
     adc_420 = random.uniform(90, 110)
     if probe_type == "Lactate":
         if current_well == 5:
@@ -267,180 +284,194 @@ def get_adc_values(probe_type, current_well):
     return adc_420, adc_485
 
 # ==========================================
-# 5. 三列并排布局（替代 Tabs，同屏展示）
+# 5. 功能区（保持 Tabs 横向切换，每 Tab 内部高度压缩到一屏）
 # ==========================================
-col_cal, col_scan, col_rep = st.columns(3, gap="medium")
+tab1, tab2, tab3 = st.tabs([T["tab1"], T["tab2"], T["tab3"]])
 
 # ------------------------------------------
-# 列 1: Calibration（乳酸 + 丙酮酸上下堆叠）
+# Tab 1: Calibration（双探针并排，图表+表格压缩）
 # ------------------------------------------
-with col_cal:
-    st.subheader(T["tab1"])
+with tab1:
+    col1, col2 = st.columns(2, gap="medium")
 
     # ---- Lactate ----
-    st.markdown(f"**{T['lactate_probe']}**")
-    if 'lac_df' not in st.session_state:
-        st.session_state['lac_df'] = pd.DataFrame({
-            "conc":   [0.0, 1.0, 2.0, 5.0, 10.0],
-            "adc420": [100.0, 102.0, 98.0, 105.0, 101.0],
-            "adc485": [120.0, 210.0, 320.0, 620.0, 1150.0],
-        })
-    df_lac = st.session_state['lac_df'].copy()
-    df_lac["ratio"] = df_lac["adc485"] / df_lac["adc420"]
-    st.caption(T["data_processing"])
-    edited_lac = st.data_editor(
-        df_lac,
-        column_config={
-            "conc":   st.column_config.NumberColumn(T["conc_mm"], format="%.1f"),
-            "adc420": st.column_config.NumberColumn(T["adc420"], format="%.1f"),
-            "adc485": st.column_config.NumberColumn(T["adc485"], format="%.1f"),
-            "ratio":  st.column_config.NumberColumn(T["ratio"], format="%.3f", disabled=True),
-        },
-        hide_index=True,
-        use_container_width=True,
-        num_rows="fixed",
-        height=210,
-        key="lac_data_editor"
-    )
-    st.session_state['lac_df'] = edited_lac.drop(columns=["ratio"]).copy()
-    ratios = edited_lac["adc485"] / edited_lac["adc420"]
-    xd = edited_lac["conc"].values
-    try:
-        res = linregress(xd, ratios)
-        st.session_state['lac_slope'] = res.slope
-        st.session_state['lac_int'] = res.intercept
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=xd, y=ratios, mode='markers',
-                                 name=T["standards"], marker=dict(color='#0068c9', size=9)))
-        fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * xd, mode='lines',
-                                 name=T["fit"], line=dict(color='#333', width=2, dash='dash')))
-        fig.update_layout(
-            title=dict(text=T["lac_calib_title"], font=dict(size=12)),
-            xaxis_title=T["x_mm"], yaxis_title=T["y_ratio"],
-            height=200, margin=dict(l=0, r=0, t=28, b=0),
-            showlegend=False, font=dict(size=10)
+    with col1:
+        st.subheader(T["lactate_probe"])
+        if 'lac_df' not in st.session_state:
+            st.session_state['lac_df'] = pd.DataFrame({
+                "conc":   [0.0, 1.0, 2.0, 5.0, 10.0],
+                "adc420": [100.0, 102.0, 98.0, 105.0, 101.0],
+                "adc485": [120.0, 210.0, 320.0, 620.0, 1150.0],
+            })
+        df_lac = st.session_state['lac_df'].copy()
+        df_lac["ratio"] = df_lac["adc485"] / df_lac["adc420"]
+        st.caption(T["data_processing"])
+        edited_lac = st.data_editor(
+            df_lac,
+            column_config={
+                "conc":   st.column_config.NumberColumn(T["conc_mm"], format="%.1f"),
+                "adc420": st.column_config.NumberColumn(T["adc420"], format="%.1f"),
+                "adc485": st.column_config.NumberColumn(T["adc485"], format="%.1f"),
+                "ratio":  st.column_config.NumberColumn(T["ratio"], format="%.3f", disabled=True),
+            },
+            hide_index=True,
+            use_container_width=True,
+            num_rows="fixed",
+            height=195,
+            key="lac_data_editor"
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        st.success(T["fitted"].format(slope=res.slope, intc=res.intercept, r2=res.rvalue**2))
-    except Exception as e:
-        st.error(T["calib_error"].format(e=e))
+        st.session_state['lac_df'] = edited_lac.drop(columns=["ratio"]).copy()
 
-    st.divider()
+        ratios = edited_lac["adc485"] / edited_lac["adc420"]
+        xd = edited_lac["conc"].values
+        try:
+            res = linregress(xd, ratios)
+            st.session_state['lac_slope'] = res.slope
+            st.session_state['lac_int'] = res.intercept
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=xd, y=ratios, mode='markers',
+                                     name=T["standards"], marker=dict(color='#0068c9', size=8)))
+            fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * xd, mode='lines',
+                                     name=T["fit"], line=dict(color='#333', width=2, dash='dash')))
+            fig.update_layout(
+                title=dict(text=T["lac_calib_title"], font=dict(size=11), x=0.5, xanchor='center'),
+                xaxis_title=T["x_mm"], yaxis_title=T["y_ratio"],
+                height=175, margin=dict(l=0, r=0, t=26, b=0),
+                showlegend=False, font=dict(size=9)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            st.markdown(
+                f'<div class="fit-box">✅ {T["fitted"].format(slope=res.slope, intc=res.intercept, r2=res.rvalue**2)}</div>',
+                unsafe_allow_html=True
+            )
+        except Exception as e:
+            st.markdown(f'<div class="fit-box-err">❌ {T["calib_error"].format(e=e)}</div>',
+                        unsafe_allow_html=True)
 
     # ---- Pyruvate ----
-    st.markdown(f"**{T['pyruvate_probe']}**")
-    if 'pyr_df' not in st.session_state:
-        st.session_state['pyr_df'] = pd.DataFrame({
-            "conc":   [0.0, 100.0, 200.0, 500.0, 1000.0],
-            "adc420": [100.0, 98.0, 102.0, 100.0, 99.0],
-            "adc485": [120.0, 180.0, 250.0, 550.0, 1050.0],
-        })
-    df_pyr = st.session_state['pyr_df'].copy()
-    df_pyr["ratio"] = df_pyr["adc485"] / df_pyr["adc420"]
-    st.caption(T["data_processing"])
-    edited_pyr = st.data_editor(
-        df_pyr,
-        column_config={
-            "conc":   st.column_config.NumberColumn(T["conc_um"], format="%.0f"),
-            "adc420": st.column_config.NumberColumn(T["adc420"], format="%.1f"),
-            "adc485": st.column_config.NumberColumn(T["adc485"], format="%.1f"),
-            "ratio":  st.column_config.NumberColumn(T["ratio"], format="%.3f", disabled=True),
-        },
-        hide_index=True,
-        use_container_width=True,
-        num_rows="fixed",
-        height=210,
-        key="pyr_data_editor"
-    )
-    st.session_state['pyr_df'] = edited_pyr.drop(columns=["ratio"]).copy()
-    ratios = edited_pyr["adc485"] / edited_pyr["adc420"]
-    xd = edited_pyr["conc"].values
-    try:
-        res = linregress(xd, ratios)
-        st.session_state['pyr_slope'] = res.slope
-        st.session_state['pyr_int'] = res.intercept
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(x=xd, y=ratios, mode='markers',
-                                 name=T["standards"], marker=dict(color='#ff4b4b', size=9)))
-        fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * xd, mode='lines',
-                                 name=T["fit"], line=dict(color='#333', width=2, dash='dash')))
-        fig.update_layout(
-            title=dict(text=T["pyr_calib_title"], font=dict(size=12)),
-            xaxis_title=T["x_um"], yaxis_title=T["y_ratio"],
-            height=200, margin=dict(l=0, r=0, t=28, b=0),
-            showlegend=False, font=dict(size=10)
+    with col2:
+        st.subheader(T["pyruvate_probe"])
+        if 'pyr_df' not in st.session_state:
+            st.session_state['pyr_df'] = pd.DataFrame({
+                "conc":   [0.0, 100.0, 200.0, 500.0, 1000.0],
+                "adc420": [100.0, 98.0, 102.0, 100.0, 99.0],
+                "adc485": [120.0, 180.0, 250.0, 550.0, 1050.0],
+            })
+        df_pyr = st.session_state['pyr_df'].copy()
+        df_pyr["ratio"] = df_pyr["adc485"] / df_pyr["adc420"]
+        st.caption(T["data_processing"])
+        edited_pyr = st.data_editor(
+            df_pyr,
+            column_config={
+                "conc":   st.column_config.NumberColumn(T["conc_um"], format="%.0f"),
+                "adc420": st.column_config.NumberColumn(T["adc420"], format="%.1f"),
+                "adc485": st.column_config.NumberColumn(T["adc485"], format="%.1f"),
+                "ratio":  st.column_config.NumberColumn(T["ratio"], format="%.3f", disabled=True),
+            },
+            hide_index=True,
+            use_container_width=True,
+            num_rows="fixed",
+            height=195,
+            key="pyr_data_editor"
         )
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
-        st.success(T["fitted_pyr"].format(slope=res.slope, intc=res.intercept, r2=res.rvalue**2))
-    except Exception as e:
-        st.error(T["calib_error"].format(e=e))
+        st.session_state['pyr_df'] = edited_pyr.drop(columns=["ratio"]).copy()
+
+        ratios = edited_pyr["adc485"] / edited_pyr["adc420"]
+        xd = edited_pyr["conc"].values
+        try:
+            res = linregress(xd, ratios)
+            st.session_state['pyr_slope'] = res.slope
+            st.session_state['pyr_int'] = res.intercept
+            fig = go.Figure()
+            fig.add_trace(go.Scatter(x=xd, y=ratios, mode='markers',
+                                     name=T["standards"], marker=dict(color='#ff4b4b', size=8)))
+            fig.add_trace(go.Scatter(x=xd, y=res.intercept + res.slope * xd, mode='lines',
+                                     name=T["fit"], line=dict(color='#333', width=2, dash='dash')))
+            fig.update_layout(
+                title=dict(text=T["pyr_calib_title"], font=dict(size=11), x=0.5, xanchor='center'),
+                xaxis_title=T["x_um"], yaxis_title=T["y_ratio"],
+                height=175, margin=dict(l=0, r=0, t=26, b=0),
+                showlegend=False, font=dict(size=9)
+            )
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            st.markdown(
+                f'<div class="fit-box">✅ {T["fitted_pyr"].format(slope=res.slope, intc=res.intercept, r2=res.rvalue**2)}</div>',
+                unsafe_allow_html=True
+            )
+        except Exception as e:
+            st.markdown(f'<div class="fit-box-err">❌ {T["calib_error"].format(e=e)}</div>',
+                        unsafe_allow_html=True)
 
 # ------------------------------------------
-# 列 2: Hardware Scan
+# Tab 2: Hardware Scan（设置 + 结果并排，无柱形图）
 # ------------------------------------------
-with col_scan:
-    st.subheader(T["tab2"])
-
+with tab2:
     lac_slope = st.session_state.get('lac_slope', 0.1)
     lac_int = st.session_state.get('lac_int', 1.0)
     pyr_slope = st.session_state.get('pyr_slope', 0.001)
     pyr_int = st.session_state.get('pyr_int', 1.0)
 
-    st.markdown(f"**{T['scan_setup']}**")
-    probe_label_map = {"Lactate": T["lactate"], "Pyruvate": T["pyruvate"]}
-    probe_type = st.radio(
-        T["probe_mode"], ["Lactate", "Pyruvate"],
-        format_func=lambda x: probe_label_map[x],
-        horizontal=True
-    )
-    num_wells = st.slider(T["num_wells"], 1, 16, 6)
+    col_setup, col_results = st.columns([1, 2], gap="medium")
 
-    if st.button(T["start"], type="primary"):
-        st.session_state['scan_data'] = []
-        progress_bar = st.progress(0)
-        status_text = st.empty()
+    with col_setup:
+        st.subheader(T["scan_setup"])
+        probe_label_map = {"Lactate": T["lactate"], "Pyruvate": T["pyruvate"]}
+        probe_type = st.radio(
+            T["probe_mode"], ["Lactate", "Pyruvate"],
+            format_func=lambda x: probe_label_map[x],
+            horizontal=True
+        )
+        num_wells = st.slider(T["num_wells"], 1, 16, 6)
 
-        for i in range(1, num_wells + 1):
-            status_text.text(T["reading"].format(i=i))
-            adc_420, adc_485 = get_adc_values(probe_type, i)
-            ratio = adc_485 / adc_420
-            if probe_type == "Lactate":
-                conc = max(0, (ratio - lac_int) / lac_slope)
-            else:
-                conc = max(0, (ratio - pyr_int) / pyr_slope)
-            st.session_state['scan_data'].append({
-                "Sample ID": f"W-{i:02d}",
-                T["adc420"]: round(adc_420, 1),
-                T["adc485"]: round(adc_485, 1),
-                T["ratio"]: round(ratio, 3),
-                T["result"]: round(conc, 2),
-            })
-            progress_bar.progress(i / num_wells)
-        status_text.success(T["scan_done"])
-
-    if 'scan_data' in st.session_state and st.session_state['scan_data']:
-        df = pd.DataFrame(st.session_state['scan_data'])
-        unit = "mM" if probe_type == "Lactate" else "μM"
-        st.markdown(T["results"].format(probe=probe_label_map[probe_type], unit=unit))
-        st.dataframe(df, use_container_width=True, hide_index=True, height=230)
-
-        if st.button(T["save"], type="primary"):
-            if 'saved_lac' not in st.session_state:
-                st.session_state['saved_lac'] = {}
-            if 'saved_pyr' not in st.session_state:
-                st.session_state['saved_pyr'] = {}
-            for row in st.session_state['scan_data']:
+        if st.button(T["start"], type="primary"):
+            st.session_state['scan_data'] = []
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            for i in range(1, num_wells + 1):
+                status_text.text(T["reading"].format(i=i))
+                adc_420, adc_485 = get_adc_values(probe_type, i)
+                ratio = adc_485 / adc_420
                 if probe_type == "Lactate":
-                    st.session_state['saved_lac'][row['Sample ID']] = row[T["result"]]
+                    conc = max(0, (ratio - lac_int) / lac_slope)
                 else:
-                    st.session_state['saved_pyr'][row['Sample ID']] = row[T["result"]]
-            st.success(T["saved"])
+                    conc = max(0, (ratio - pyr_int) / pyr_slope)
+                st.session_state['scan_data'].append({
+                    "Sample ID": f"W-{i:02d}",
+                    T["adc420"]: round(adc_420, 1),
+                    T["adc485"]: round(adc_485, 1),
+                    T["ratio"]: round(ratio, 3),
+                    T["result"]: round(conc, 2),
+                })
+                progress_bar.progress(i / num_wells)
+            status_text.success(T["scan_done"])
+
+    with col_results:
+        st.subheader(T["tab2"].split(". ", 1)[-1])  # "Hardware Scan"
+        if 'scan_data' in st.session_state and st.session_state['scan_data']:
+            df = pd.DataFrame(st.session_state['scan_data'])
+            unit = "mM" if probe_type == "Lactate" else "μM"
+            st.markdown(T["results"].format(probe=probe_label_map[probe_type], unit=unit))
+            st.dataframe(df, use_container_width=True, hide_index=True, height=230)
+
+            if st.button(T["save"], type="primary"):
+                if 'saved_lac' not in st.session_state:
+                    st.session_state['saved_lac'] = {}
+                if 'saved_pyr' not in st.session_state:
+                    st.session_state['saved_pyr'] = {}
+                for row in st.session_state['scan_data']:
+                    if probe_type == "Lactate":
+                        st.session_state['saved_lac'][row['Sample ID']] = row[T["result"]]
+                    else:
+                        st.session_state['saved_pyr'][row['Sample ID']] = row[T["result"]]
+                st.success(T["saved"])
+        else:
+            st.info("▶ " + T["start"])
 
 # ------------------------------------------
-# 列 3: Export & Reports（默认展开第一份，底部临床提示）
+# Tab 3: Export & Reports（第一份默认展开 + 底部临床提示）
 # ------------------------------------------
-with col_rep:
-    st.subheader(T["tab3"])
+with tab3:
+    st.subheader(T["export_title"])
 
     if 'saved_lac' not in st.session_state or 'saved_pyr' not in st.session_state:
         st.info(T["need_scan"])
@@ -455,7 +486,6 @@ with col_rep:
             for sid in common_ids:
                 c_lac = st.session_state['saved_lac'][sid]
                 c_pyr = st.session_state['saved_pyr'][sid]
-
                 if c_lac >= 5.0 and c_pyr >= 200:
                     status_key = "cancer"
                 elif c_lac >= 5.0 and c_pyr < 200:
@@ -464,7 +494,6 @@ with col_rep:
                     status_key = "highpyr"
                 else:
                     status_key = "normal"
-
                 joint_data.append({
                     "Sample ID": sid,
                     T["lactate"] + " (mM)": c_lac,
@@ -502,32 +531,32 @@ with col_rep:
                     expanded=expanded_flag
                 ):
                     report_html = f"""
-                    <div style="border: 1px solid #333; padding: 12px; border-radius: 6px; font-family: Arial, sans-serif; background-color: #fff; font-size: 11px;">
-                        <h4 style="text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; margin: 0 0 8px 0;">{T['report_title']}</h4>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="border: 1px solid #333; padding: 12px 16px; border-radius: 6px; font-family: Arial, sans-serif; background-color: #fff; font-size: 11.5px;">
+                        <h4 style="text-align: center; border-bottom: 1.5px solid #333; padding-bottom: 4px; margin: 0 0 8px 0; font-size: 13px;">{T['report_title']}</h4>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
                             <div><b>{T['sample_id']}:</b> {row['Sample ID']}</div>
                             <div><b>{T['date']}:</b> {time.strftime('%Y-%m-%d')}</div>
                         </div>
-                        <table style="width: 100%; border-collapse: collapse;">
+                        <table style="width: 100%; border-collapse: collapse; margin-top: 4px;">
                             <tr style="background-color: #f2f2f2;">
-                                <th style="border: 1px solid #ddd; padding: 4px; text-align: left;">{T['biomarker']}</th>
-                                <th style="border: 1px solid #ddd; padding: 4px; text-align: center;">{T['result']}</th>
-                                <th style="border: 1px solid #ddd; padding: 4px; text-align: center;">{T['reference']}</th>
+                                <th style="border: 1px solid #ddd; padding: 4px 6px; text-align: left; font-size: 11px;">{T['biomarker']}</th>
+                                <th style="border: 1px solid #ddd; padding: 4px 6px; text-align: center; font-size: 11px;">{T['result']}</th>
+                                <th style="border: 1px solid #ddd; padding: 4px 6px; text-align: center; font-size: 11px;">{T['reference']}</th>
                             </tr>
                             <tr>
-                                <td style="border: 1px solid #ddd; padding: 4px;">{T['lactate']}</td>
-                                <td style="border: 1px solid #ddd; padding: 4px; text-align: center; font-weight: bold; color: {risk_color};">{row[T['lactate'] + ' (mM)']:.2f} mM</td>
-                                <td style="border: 1px solid #ddd; padding: 4px; text-align: center;">&lt; 5.0 mM</td>
+                                <td style="border: 1px solid #ddd; padding: 4px 6px;">{T['lactate']}</td>
+                                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: center; font-weight: bold; color: {risk_color};">{row[T['lactate'] + ' (mM)']:.2f} mM</td>
+                                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: center;">&lt; 5.0 mM</td>
                             </tr>
                             <tr>
-                                <td style="border: 1px solid #ddd; padding: 4px;">{T['pyruvate']}</td>
-                                <td style="border: 1px solid #ddd; padding: 4px; text-align: center; font-weight: bold; color: {risk_color};">{row[T['pyruvate'] + ' (μM)']:.1f} μM</td>
-                                <td style="border: 1px solid #ddd; padding: 4px; text-align: center;">&lt; 200 μM</td>
+                                <td style="border: 1px solid #ddd; padding: 4px 6px;">{T['pyruvate']}</td>
+                                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: center; font-weight: bold; color: {risk_color};">{row[T['pyruvate'] + ' (μM)']:.1f} μM</td>
+                                <td style="border: 1px solid #ddd; padding: 4px 6px; text-align: center;">&lt; 200 μM</td>
                             </tr>
                         </table>
-                        <div style="margin-top: 8px; color: {risk_color}; font-weight: bold;">{T['diagnosis']}: {status_text}</div>
-                        <p style="margin: 4px 0; line-height: 1.4;"><b>{T['clinical_rec']}:</b> {rec_text}</p>
-                        <p style="margin-top: 8px; font-size: 9px; color: #777; text-align: center;">{T['footer']}</p>
+                        <div style="margin-top: 8px; color: {risk_color}; font-weight: bold; font-size: 12px;">{T['diagnosis']}: {status_text}</div>
+                        <p style="margin: 3px 0; line-height: 1.35; font-size: 11.5px;"><b>{T['clinical_rec']}:</b> {rec_text}</p>
+                        <p style="margin-top: 6px; font-size: 9px; color: #777; text-align: center;">{T['footer']}</p>
                     </div>
                     """
                     st.markdown(report_html, unsafe_allow_html=True)
